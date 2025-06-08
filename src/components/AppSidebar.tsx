@@ -1,5 +1,4 @@
-
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, Building2, Users, Truck, FileText, LogOut, BookOpen, PieChart, DollarSign, CreditCard } from "lucide-react";
 import {
   Sidebar,
@@ -63,10 +62,12 @@ const statementItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const handleSignOut = () => {
     console.log("Admin signed out");
-    // TODO: Implement sign out functionality
+    // Navigate back to login page
+    navigate("/");
   };
 
   return (
