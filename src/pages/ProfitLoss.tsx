@@ -4,29 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useProfitLossStatement } from "@/hooks/useStatements";
 
 const ProfitLoss = () => {
-  // Mock P&L data
-  const revenue = [
-    { account: "Sales Revenue", amount: 180000 },
-    { account: "Service Revenue", amount: 25000 },
-    { account: "Interest Income", amount: 1200 },
-  ];
-
-  const expenses = [
-    { account: "Cost of Goods Sold", amount: 95000 },
-    { account: "Salaries & Wages", amount: 45000 },
-    { account: "Rent Expense", amount: 12000 },
-    { account: "Utilities", amount: 3200 },
-    { account: "Marketing", amount: 8500 },
-    { account: "Professional Services", amount: 4200 },
-    { account: "Insurance", amount: 2800 },
-    { account: "Depreciation", amount: 5500 },
-  ];
-
-  const totalRevenue = revenue.reduce((sum, item) => sum + item.amount, 0);
-  const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
-  const netIncome = totalRevenue - totalExpenses;
+  const { data: statementData, loading } = useProfitLossStatement();
 
   const handleSaveToPDF = () => {
     toast({
@@ -35,6 +18,28 @@ const ProfitLoss = () => {
     });
     console.log("Saving P&L statement to PDF...");
   };
+
+  const formatCurrency = (value: string) => {
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return value;
+    return `₹${Math.abs(numValue).toLocaleString('en-IN')}`;
+  };
+
+  const getRowColor = (item: string, value: string) => {
+    if (item === 'Net Profit/Loss') {
+      const numValue = parseFloat(value);
+      if (numValue > 0) return 'text-green-600';
+      if (numValue < 0) return 'text-red-600';
+    }
+    if (item === 'Profit Status') {
+      if (value === 'Profit') return 'text-green-600';
+      if (value === 'Loss') return 'text-red-600';
+    }
+    return 'text-gray-900';
+  };
+
+  const netProfitLoss = statementData.find(item => item.item === 'Net Profit/Loss');
+  const profitStatus = statementData.find(item => item.item === 'Profit Status');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -58,82 +63,51 @@ const ProfitLoss = () => {
         <Card className="bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="text-xl">Profit & Loss Statement</CardTitle>
-            <p className="text-gray-600">For the Month Ended June 30, 2024</p>
+            <p className="text-gray-600">For the Period Ended {new Date().toLocaleDateString('en-IN')}</p>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Revenue Section */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue</h3>
-              <div className="space-y-2">
-                {revenue.map((item, index) => (
-                  <div key={index} className="flex justify-between py-2">
-                    <span className="text-gray-700">{item.account}</span>
-                    <span className="font-medium text-gray-900">${item.amount.toLocaleString()}</span>
-                  </div>
-                ))}
-                <div className="border-t border-gray-200 pt-2 mt-4">
-                  <div className="flex justify-between font-semibold">
-                    <span className="text-gray-900">Total Revenue</span>
-                    <span className="text-green-600">${totalRevenue.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {loading ? (
+              <div className="text-center py-8">Loading profit & loss statement...</div>
+            ) : (
+              <>
+                <ScrollArea className="h-[400px] w-full">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-1/2">Item</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {statementData.map((item, index) => (
+                        <TableRow key={index} className={item.item === 'Net Profit/Loss' ? 'border-t-2 border-gray-300' : ''}>
+                          <TableCell className="font-medium">{item.item}</TableCell>
+                          <TableCell className={`text-right font-semibold ${getRowColor(item.item, item.value)}`}>
+                            {item.item === 'Profit Status' ? item.value : formatCurrency(item.value)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
 
-            {/* Expenses Section */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Expenses</h3>
-              <div className="space-y-2">
-                {expenses.map((item, index) => (
-                  <div key={index} className="flex justify-between py-2">
-                    <span className="text-gray-700">{item.account}</span>
-                    <span className="font-medium text-gray-900">${item.amount.toLocaleString()}</span>
+                {/* Summary */}
+                {netProfitLoss && profitStatus && (
+                  <div className="bg-gray-50 p-6 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-4 text-center">Financial Summary</h4>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600 mb-2">Net Result</p>
+                      <p className={`text-3xl font-bold ${getRowColor(netProfitLoss.item, netProfitLoss.value)}`}>
+                        {formatCurrency(netProfitLoss.value)}
+                      </p>
+                      <p className={`text-lg font-medium mt-2 ${getRowColor(profitStatus.item, profitStatus.value)}`}>
+                        {profitStatus.value}
+                      </p>
+                    </div>
                   </div>
-                ))}
-                <div className="border-t border-gray-200 pt-2 mt-4">
-                  <div className="flex justify-between font-semibold">
-                    <span className="text-gray-900">Total Expenses</span>
-                    <span className="text-red-600">${totalExpenses.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Net Income */}
-            <div className="border-t-2 border-gray-300 pt-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">Net Income</h3>
-                <span className={`text-2xl font-bold ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${Math.abs(netIncome).toLocaleString()}
-                  {netIncome < 0 && ' (Loss)'}
-                </span>
-              </div>
-            </div>
-
-            {/* Key Metrics */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-gray-900 mb-3">Key Metrics</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Gross Profit Margin</p>
-                  <p className="text-lg font-semibold text-blue-600">
-                    {((totalRevenue - 95000) / totalRevenue * 100).toFixed(1)}%
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Operating Margin</p>
-                  <p className="text-lg font-semibold text-blue-600">
-                    {(netIncome / totalRevenue * 100).toFixed(1)}%
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Expense Ratio</p>
-                  <p className="text-lg font-semibold text-blue-600">
-                    {(totalExpenses / totalRevenue * 100).toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-            </div>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

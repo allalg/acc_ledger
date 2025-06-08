@@ -2,40 +2,58 @@
 import { useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import LedgerDetail from "@/components/LedgerDetail";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useLedgerData } from "@/hooks/useLedgerData";
+import { supabase } from "@/integrations/supabase/client";
 
 const Ledgers = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedLedger, setSelectedLedger] = useState<any>(null);
+  const [selectedLedger, setSelectedLedger] = useState<string>("accounts-receivable");
   
-  // Mock ledger data
-  const ledgers = [
-    { id: 1, account: "Cash Account", balance: 25000, type: "Asset" },
-    { id: 2, account: "Accounts Receivable", balance: 75000, type: "Asset" },
-    { id: 3, account: "Inventory", balance: 48000, type: "Asset" },
-    { id: 4, account: "Accounts Payable", balance: -32000, type: "Liability" },
-    { id: 5, account: "Sales Revenue", balance: -180000, type: "Revenue" },
-    { id: 6, account: "Cost of Goods Sold", balance: 95000, type: "Expense" },
+  const ledgerOptions = [
+    { value: "accounts-receivable", label: "Accounts Receivable A/c" },
+    { value: "accounts-payable", label: "Accounts Payable A/c" },
+    { value: "sales", label: "Sales A/c" },
+    { value: "purchases", label: "Purchases A/c" },
   ];
 
-  const filteredLedgers = ledgers.filter(ledger =>
-    ledger.account.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const { data: ledgerData, loading } = useLedgerData(selectedLedger);
 
-  const handleSaveToPDF = () => {
-    toast({
-      title: "PDF Generated",
-      description: "Ledger report has been saved to PDF successfully.",
-    });
-    console.log("Saving ledgers to PDF...");
+  const handleSaveToPDF = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('save-ledger-pdf', {
+        body: {
+          ledgerData,
+          ledgerType: ledgerOptions.find(opt => opt.value === selectedLedger)?.label,
+          filename: `${selectedLedger}-ledger-${new Date().toISOString().split('T')[0]}`
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "PDF Generated",
+        description: "Ledger report has been saved to PDF successfully.",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF report.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleLedgerClick = (ledger: any) => {
-    setSelectedLedger(ledger);
+  const formatCurrency = (amount: number) => {
+    return `₹${Math.abs(amount).toLocaleString('en-IN')}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN');
   };
 
   return (
@@ -46,7 +64,7 @@ const Ledgers = () => {
             <SidebarTrigger />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Ledgers</h1>
-              <p className="text-gray-600">Search and view ledger accounts</p>
+              <p className="text-gray-600">View detailed ledger accounts</p>
             </div>
           </div>
           <Button onClick={handleSaveToPDF} className="flex items-center gap-2">
@@ -57,17 +75,20 @@ const Ledgers = () => {
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Search Bar */}
+        {/* Ledger Selection */}
         <Card className="bg-white shadow-sm">
           <CardContent className="p-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search ledger accounts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex gap-2 flex-wrap">
+              {ledgerOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={selectedLedger === option.value ? "default" : "outline"}
+                  onClick={() => setSelectedLedger(option.value)}
+                  className="mb-2"
+                >
+                  {option.label}
+                </Button>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -75,57 +96,76 @@ const Ledgers = () => {
         {/* Ledger Display */}
         <Card className="bg-white shadow-sm">
           <CardHeader>
-            <CardTitle>Ledger Accounts</CardTitle>
+            <CardTitle>
+              {ledgerOptions.find(opt => opt.value === selectedLedger)?.label}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Account Name</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLedgers.map((ledger) => (
-                    <tr 
-                      key={ledger.id} 
-                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => handleLedgerClick(ledger)}
-                    >
-                      <td className="py-3 px-4 text-gray-900 hover:text-blue-600">{ledger.account}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          ledger.type === 'Asset' ? 'bg-blue-100 text-blue-800' :
-                          ledger.type === 'Liability' ? 'bg-red-100 text-red-800' :
-                          ledger.type === 'Revenue' ? 'bg-green-100 text-green-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {ledger.type}
-                        </span>
-                      </td>
-                      <td className={`py-3 px-4 text-right font-semibold ${
-                        ledger.balance >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        ${Math.abs(ledger.balance).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {loading ? (
+              <div className="text-center py-4">Loading ledger data...</div>
+            ) : (
+              <ScrollArea className="h-[600px] w-full">
+                <div className="min-w-[1200px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Username</TableHead>
+                        {selectedLedger === 'sales' || selectedLedger === 'purchases' ? (
+                          <>
+                            <TableHead>Item</TableHead>
+                            <TableHead>Qty</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Discount</TableHead>
+                            <TableHead>Total</TableHead>
+                          </>
+                        ) : (
+                          <>
+                            <TableHead>Debit Account</TableHead>
+                            <TableHead>Debit</TableHead>
+                            <TableHead>Credit Account</TableHead>
+                            <TableHead>Credit</TableHead>
+                          </>
+                        )}
+                        <TableHead className="text-right">Running Balance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ledgerData.map((transaction, index) => (
+                        <TableRow key={`${transaction.transaction_id}-${index}`}>
+                          <TableCell>{formatDate(transaction.transaction_date)}</TableCell>
+                          <TableCell>{transaction.description}</TableCell>
+                          <TableCell>{transaction.username}</TableCell>
+                          {selectedLedger === 'sales' || selectedLedger === 'purchases' ? (
+                            <>
+                              <TableCell>{transaction.item_name}</TableCell>
+                              <TableCell>{transaction.quantity}</TableCell>
+                              <TableCell>{transaction.unit_price ? formatCurrency(transaction.unit_price) : '-'}</TableCell>
+                              <TableCell>{transaction.discount ? formatCurrency(transaction.discount) : '-'}</TableCell>
+                              <TableCell>{transaction.line_total ? formatCurrency(transaction.line_total) : '-'}</TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell>{transaction.debit_account}</TableCell>
+                              <TableCell>{(transaction.debit_val || transaction.debit_value) ? formatCurrency(transaction.debit_val || transaction.debit_value || 0) : '-'}</TableCell>
+                              <TableCell>{transaction.credit_account}</TableCell>
+                              <TableCell>{(transaction.credit_val || transaction.credit_value) ? formatCurrency(transaction.credit_val || transaction.credit_value || 0) : '-'}</TableCell>
+                            </>
+                          )}
+                          <TableCell className="text-right font-semibold">
+                            {formatCurrency(transaction.running_balance || transaction.running_inventory_balance || 0)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </ScrollArea>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Ledger Detail Modal */}
-      {selectedLedger && (
-        <LedgerDetail 
-          ledger={selectedLedger} 
-          onClose={() => setSelectedLedger(null)} 
-        />
-      )}
     </div>
   );
 };
