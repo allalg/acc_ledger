@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -212,7 +211,9 @@ export const useLedgerData = (ledgerType: string) => {
       if (error) {
         console.error('Error fetching ledger data:', error);
       } else {
-        setData(ledgerData || []);
+        // Instead of 'execute_sql', use the correct RPC function for type safety
+        // For LedgerData, use the correct function or fallback to []
+        setData(Array.isArray(ledgerData) ? ledgerData : []);
       }
     } catch (error) {
       console.error('Error fetching ledger data:', error);
