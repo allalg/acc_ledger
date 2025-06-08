@@ -25,8 +25,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Run the raw SQL query
-    const { data, error } = await supabaseClient.rpc('execute_sql', { query });
+    // Use the PostgREST /rpc endpoint to run the SQL via a Postgres function
+    const { data, error } = await supabaseClient.functions.invoke('run_sql', { body: { query } });
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
