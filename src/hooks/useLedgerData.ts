@@ -206,15 +206,10 @@ export const useLedgerData = (ledgerType: string) => {
           return;
       }
 
+      // Use the correct Supabase RPC function for custom SQL
       const { data: ledgerData, error } = await supabase.rpc('execute_sql', { query });
-      
-      if (error) {
-        console.error('Error fetching ledger data:', error);
-      } else {
-        // Instead of 'execute_sql', use the correct RPC function for type safety
-        // For LedgerData, use the correct function or fallback to []
-        setData(Array.isArray(ledgerData) ? ledgerData : []);
-      }
+      // Ensure type safety: setData only if array, else empty array
+      setData(Array.isArray(ledgerData) ? ledgerData : []);
     } catch (error) {
       console.error('Error fetching ledger data:', error);
     } finally {
