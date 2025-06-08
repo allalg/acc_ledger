@@ -37,7 +37,7 @@ export const useDashboardData = () => {
 
       // Get net profit/loss
       const { data: profitData } = await supabase.rpc('get_net_profit_loss');
-      const profitResult = profitData as ProfitLossResult;
+      const profitResult = profitData as unknown as ProfitLossResult;
       
       // Get bank balance
       const { data: bankData } = await supabase.rpc('get_total_bank_balance');
