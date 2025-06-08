@@ -13,6 +13,11 @@ interface DashboardData {
   totalInventory: number;
 }
 
+interface ProfitLossResult {
+  netProfitLoss: number;
+  profitStatus: string;
+}
+
 export const useDashboardData = () => {
   const [data, setData] = useState<DashboardData>({
     netProfitLoss: 0,
@@ -32,9 +37,11 @@ export const useDashboardData = () => {
 
       // Get net profit/loss
       const { data: profitData } = await supabase.rpc('get_net_profit_loss');
+      const profitResult = profitData as ProfitLossResult;
       
       // Get bank balance
       const { data: bankData } = await supabase.rpc('get_total_bank_balance');
+      const bankBalance = bankData as number;
 
       // Get debtor balance
       const { data: debtorData } = await supabase
@@ -69,9 +76,9 @@ export const useDashboardData = () => {
       const totalInventory = inventoryData?.reduce((sum, item) => sum + (item.current_stock * item.cost_price), 0) || 0;
 
       setData({
-        netProfitLoss: profitData?.netProfitLoss || 0,
-        profitStatus: profitData?.profitStatus || 'Break Even',
-        bankBalance: bankData || 0,
+        netProfitLoss: profitResult?.netProfitLoss || 0,
+        profitStatus: profitResult?.profitStatus || 'Break Even',
+        bankBalance: bankBalance || 0,
         debtorBalance,
         creditorBalance,
         totalSales,

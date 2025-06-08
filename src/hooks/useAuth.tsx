@@ -53,10 +53,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { error: { message: 'Invalid credentials or role' } };
       }
 
-      // Create a mock session for our custom authentication
+      // Create a mock user with all required properties
       const mockUser = {
         id: userData.user_id,
         email: `${username}@accosight.local`,
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        email_confirmed_at: new Date().toISOString(),
+        phone: null,
+        phone_confirmed_at: null,
+        last_sign_in_at: new Date().toISOString(),
+        role: 'authenticated',
+        confirmation_sent_at: null,
+        recovery_sent_at: null,
+        email_change_sent_at: null,
+        new_email: null,
+        invited_at: null,
+        action_link: null,
+        email_change: null,
+        email_change_confirm_status: 0,
+        banned_until: null,
+        is_anonymous: false,
+        app_metadata: {},
         user_metadata: {
           username: userData.username,
           role: userData.role,
