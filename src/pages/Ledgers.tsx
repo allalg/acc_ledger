@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import LedgerDetail from "@/components/LedgerDetail";
 
 const Ledgers = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLedger, setSelectedLedger] = useState<any>(null);
   
   // Mock ledger data
   const ledgers = [
@@ -30,6 +32,10 @@ const Ledgers = () => {
       description: "Ledger report has been saved to PDF successfully.",
     });
     console.log("Saving ledgers to PDF...");
+  };
+
+  const handleLedgerClick = (ledger: any) => {
+    setSelectedLedger(ledger);
   };
 
   return (
@@ -83,8 +89,12 @@ const Ledgers = () => {
                 </thead>
                 <tbody>
                   {filteredLedgers.map((ledger) => (
-                    <tr key={ledger.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 text-gray-900">{ledger.account}</td>
+                    <tr 
+                      key={ledger.id} 
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handleLedgerClick(ledger)}
+                    >
+                      <td className="py-3 px-4 text-gray-900 hover:text-blue-600">{ledger.account}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           ledger.type === 'Asset' ? 'bg-blue-100 text-blue-800' :
@@ -108,6 +118,14 @@ const Ledgers = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Ledger Detail Modal */}
+      {selectedLedger && (
+        <LedgerDetail 
+          ledger={selectedLedger} 
+          onClose={() => setSelectedLedger(null)} 
+        />
+      )}
     </div>
   );
 };
