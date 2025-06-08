@@ -3,35 +3,73 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, TrendingUp, TrendingDown, DollarSign, Users, Truck, Package, ShoppingCart, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 const Index = () => {
-  // Mock data - in real app this would come from Supabase
-  const netProfitLoss = 45000; // Positive = profit, negative = loss
-  const bankBalance = 125000;
-  
-  const metrics = [
-    { title: "Debtor Balance", value: "$75,000", icon: Users, trend: "up" },
-    { title: "Creditor Balance", value: "$32,000", icon: Truck, trend: "down" },
-    { title: "Total Sales", value: "$180,000", icon: ShoppingCart, trend: "up" },
-    { title: "Total Purchases", value: "$95,000", icon: Package, trend: "up" },
-    { title: "Total Inventory", value: "$48,000", icon: Package, trend: "stable" },
-    { title: "Warnings", value: "3 Active", icon: AlertTriangle, trend: "warning" },
-  ];
+  const { data, loading } = useDashboardData();
 
   const warnings = [
     { type: "Low Inventory", item: "Office Supplies", level: "Critical" },
-    { type: "Bad Debt", item: "Customer ABC Inc", amount: "$5,000" },
+    { type: "Bad Debt", item: "Customer ABC Inc", amount: "₹5,000" },
     { type: "Low Inventory", item: "Raw Materials", level: "Warning" },
   ];
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const metrics = [
+    { 
+      title: "Debtor Balance", 
+      value: loading ? "Loading..." : formatCurrency(data.debtorBalance), 
+      icon: Users, 
+      trend: "up" 
+    },
+    { 
+      title: "Creditor Balance", 
+      value: loading ? "Loading..." : formatCurrency(data.creditorBalance), 
+      icon: Truck, 
+      trend: "down" 
+    },
+    { 
+      title: "Total Sales", 
+      value: loading ? "Loading..." : formatCurrency(data.totalSales), 
+      icon: ShoppingCart, 
+      trend: "up" 
+    },
+    { 
+      title: "Total Purchases", 
+      value: loading ? "Loading..." : formatCurrency(data.totalPurchases), 
+      icon: Package, 
+      trend: "up" 
+    },
+    { 
+      title: "Total Inventory", 
+      value: loading ? "Loading..." : formatCurrency(data.totalInventory), 
+      icon: Package, 
+      trend: "stable" 
+    },
+    { 
+      title: "Warnings", 
+      value: "3 Active", 
+      icon: AlertTriangle, 
+      trend: "warning" 
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="border-b border-gray-200 bg-white">
+    <div className="min-h-screen bg-green-50">
+      <div className="border-b border-green-200 bg-white">
         <div className="flex items-center gap-4 p-6">
           <SidebarTrigger />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600">Welcome back! Here's your financial overview.</p>
+            <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+            <p className="text-green-600">Welcome back! Here's your financial overview.</p>
           </div>
         </div>
       </div>
@@ -39,43 +77,43 @@ const Index = () => {
       <div className="p-6 space-y-6">
         {/* Overview Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-white shadow-sm">
+          <Card className="bg-white shadow-sm border-green-200">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-semibold text-gray-700">Net Profit/Loss</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-full ${netProfitLoss >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                  {netProfitLoss >= 0 ? (
+                <div className={`p-2 rounded-full ${data.netProfitLoss >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                  {data.netProfitLoss >= 0 ? (
                     <TrendingUp className="h-6 w-6 text-green-600" />
                   ) : (
                     <TrendingDown className="h-6 w-6 text-red-600" />
                   )}
                 </div>
                 <div>
-                  <p className={`text-3xl font-bold ${netProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${Math.abs(netProfitLoss).toLocaleString()}
+                  <p className={`text-3xl font-bold ${data.netProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {loading ? "Loading..." : formatCurrency(Math.abs(data.netProfitLoss))}
                   </p>
                   <p className="text-sm text-gray-600">
-                    {netProfitLoss >= 0 ? 'Profit' : 'Loss'} this month
+                    {data.profitStatus} this month
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white shadow-sm">
+          <Card className="bg-white shadow-sm border-green-200">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-semibold text-gray-700">Bank Balance</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-full ${bankBalance >= 0 ? 'bg-blue-100' : 'bg-red-100'}`}>
-                  <DollarSign className={`h-6 w-6 ${bankBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`} />
+                <div className={`p-2 rounded-full ${data.bankBalance >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                  <DollarSign className={`h-6 w-6 ${data.bankBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
                 </div>
                 <div>
-                  <p className={`text-3xl font-bold ${bankBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                    ${Math.abs(bankBalance).toLocaleString()}
+                  <p className={`text-3xl font-bold ${data.bankBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {loading ? "Loading..." : formatCurrency(Math.abs(data.bankBalance))}
                   </p>
                   <p className="text-sm text-gray-600">Current balance</p>
                 </div>
@@ -86,10 +124,10 @@ const Index = () => {
 
         {/* Metrics Section */}
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Financial Metrics</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Financial Metrics</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {metrics.map((metric, index) => (
-              <Card key={index} className="bg-white shadow-sm hover:shadow-md transition-shadow">
+              <Card key={index} className="bg-white shadow-sm hover:shadow-md transition-shadow border-green-200">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-3">
                     <div className={`p-2 rounded-lg ${
@@ -110,7 +148,7 @@ const Index = () => {
                     )}
                   </div>
                   <h3 className="text-sm font-medium text-gray-600 mb-1">{metric.title}</h3>
-                  <p className="text-2xl font-bold text-gray-900">{metric.value}</p>
+                  <p className="text-2xl font-bold text-gray-800">{metric.value}</p>
                   
                   {metric.title === "Warnings" && (
                     <div className="mt-4 space-y-2 max-h-32 overflow-y-auto">

@@ -1,5 +1,6 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, Building2, Users, Truck, FileText, LogOut, BookOpen, PieChart, DollarSign, CreditCard } from "lucide-react";
+
+import { Link, useLocation } from "react-router-dom";
+import { ChevronDown, Users, Truck, FileText, LogOut, BookOpen, PieChart, DollarSign, CreditCard } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +19,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 const menuItems = [
   {
@@ -62,29 +64,33 @@ const statementItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { signOut, user } = useAuth();
 
-  const handleSignOut = () => {
-    console.log("Admin signed out");
-    // Navigate back to login page
-    navigate("/");
+  const handleSignOut = async () => {
+    await signOut();
   };
 
   return (
-    <Sidebar className="border-r border-gray-200">
-      <SidebarHeader className="p-6 border-b border-gray-200">
+    <Sidebar className="border-r border-green-200 bg-white">
+      <SidebarHeader className="p-6 border-b border-green-200">
         <div className="flex items-center gap-2">
-          <Building2 className="h-8 w-8 text-blue-600" />
+          <img 
+            src="/lovable-uploads/d1415ff8-fd32-4b87-afe2-3d9b9565445b.png" 
+            alt="Acco Sight Logo" 
+            className="h-8 w-auto"
+          />
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Finance App</h2>
-            <p className="text-sm text-gray-600">Admin Dashboard</p>
+            <h2 className="text-lg font-semibold text-gray-800">Acco Sight</h2>
+            <p className="text-sm text-green-600">
+              {user?.user_metadata?.role === 'admin' ? 'Admin Dashboard' : 'Employee Dashboard'}
+            </p>
           </div>
         </div>
       </SidebarHeader>
       
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <SidebarGroupLabel className="text-xs font-semibold text-green-700 uppercase tracking-wider">
             Navigation
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -92,9 +98,9 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                    <Link to={item.url} className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors">
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
+                    <Link to={item.url} className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-green-50">
+                      <item.icon className="h-5 w-5 text-green-600" />
+                      <span className="text-gray-700">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -106,21 +112,21 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+              <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 rounded-lg transition-colors">
                 <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5" />
+                  <FileText className="h-5 w-5 text-green-600" />
                   <span>Statements</span>
                 </div>
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4 text-green-600" />
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-1 ml-8">
                 <SidebarMenu>
                   {statementItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                        <Link to={item.url} className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm">
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
+                        <Link to={item.url} className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm hover:bg-green-50">
+                          <item.icon className="h-4 w-4 text-green-600" />
+                          <span className="text-gray-700">{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -132,11 +138,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-gray-200">
+      <SidebarFooter className="p-4 border-t border-green-200">
+        <div className="text-xs text-gray-600 mb-2">
+          Logged in as: {user?.user_metadata?.username}
+        </div>
         <Button 
           onClick={handleSignOut}
           variant="outline" 
-          className="w-full flex items-center gap-2 text-gray-700 hover:text-red-600 hover:border-red-600"
+          className="w-full flex items-center gap-2 text-gray-700 hover:text-red-600 hover:border-red-600 border-green-200"
         >
           <LogOut className="h-4 w-4" />
           Sign Out
