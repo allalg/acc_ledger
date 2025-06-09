@@ -156,9 +156,8 @@ const AddTransactionForm = () => {
           item_id: item.item_id,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          discount: item.discount,
-          gross_amount: item.quantity * item.unit_price,
-          total_amount: (item.quantity * item.unit_price) - item.discount
+          discount: item.discount
+          // Remove gross_amount and total_amount - let the database handle these
         }));
 
         const { error: itemsError } = await supabase
