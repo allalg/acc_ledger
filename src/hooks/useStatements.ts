@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -46,20 +45,21 @@ export const useProfitLossStatement = () => {
 
       const totalPurchases = purchases?.reduce((sum, txn) => sum + (txn.amount || 0), 0) || 0;
 
-      // Get total income (credits to income accounts)
-      const { data: incomeTransactions } = await supabase
-        .from('transactions')
-        .select(`
-          amount,
-          accounts!credit_account_id(
-            account_heads(name)
-          )
-        `);
+      // Get total income (credits to Inventory account)
+      const { data: inventoryAccount } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('name', 'Inventory')
+        .single();
 
-      const totalIncome = incomeTransactions?.reduce((sum, txn) => {
-        const accountHead = (txn.accounts as any)?.account_heads?.name;
-        return accountHead === 'Income' ? sum + (txn.amount || 0) : sum;
-      }, 0) || 0;
+      let totalIncome = 0;
+      if (inventoryAccount?.id) {
+        const { data: incomeTransactions } = await supabase
+          .from('transactions')
+          .select('amount, credit_account_id');
+        totalIncome = incomeTransactions?.reduce((sum, txn) =>
+          txn.credit_account_id === inventoryAccount.id ? sum + (txn.amount || 0) : sum, 0) || 0;
+      }
 
       // Get operating expenses (debits to expense accounts, excluding inventory)
       const { data: expenseTransactions } = await supabase
