@@ -49,8 +49,12 @@ export const useProfitLossStatement = () => {
       // Get total income (credits to income accounts)
       const { data: incomeTransactions } = await supabase
         .from('transactions')
-        .select('amount, accounts!credit_account_id(account_heads(name))')
-        .not('accounts.account_heads.name', 'is', null);
+        .select(`
+          amount,
+          accounts!credit_account_id(
+            account_heads(name)
+          )
+        `);
 
       const totalIncome = incomeTransactions?.reduce((sum, txn) => {
         const accountHead = (txn.accounts as any)?.account_heads?.name;
@@ -60,8 +64,13 @@ export const useProfitLossStatement = () => {
       // Get operating expenses (debits to expense accounts, excluding inventory)
       const { data: expenseTransactions } = await supabase
         .from('transactions')
-        .select('amount, accounts!debit_account_id(id, account_heads(name))')
-        .not('accounts.account_heads.name', 'is', null);
+        .select(`
+          amount,
+          accounts!debit_account_id(
+            id,
+            account_heads(name)
+          )
+        `);
 
       const operatingExpenses = expenseTransactions?.reduce((sum, txn) => {
         const account = txn.accounts as any;
@@ -112,8 +121,8 @@ export const useBalanceSheet = () => {
     try {
       setLoading(true);
       
-      // Get account balances using the correct structure
-      const { data: accountBalances } = await supabase
+      // Get account balances with proper joins
+      const { data: accountsData } = await supabase
         .from('accounts')
         .select(`
           id,
@@ -128,7 +137,7 @@ export const useBalanceSheet = () => {
       // Calculate balances for each account
       const balances: { [key: string]: { balance: number; type: string; name: string } } = {};
       
-      accountBalances?.forEach(account => {
+      accountsData?.forEach(account => {
         const accountType = (account.account_heads as any)?.name;
         balances[account.id] = {
           balance: 0,
@@ -147,15 +156,15 @@ export const useBalanceSheet = () => {
         }
       });
 
-      // Calculate net profit for retained earnings
-      const { data: profitData } = await useProfitLossStatement();
+      // Calculate net profit using P&L data
+      const { data: profitData } = useProfitLossStatement();
       const netProfitItem = profitData.find(item => item.item === 'Net Profit/Loss');
       const netProfit = parseFloat(netProfitItem?.value || '0');
 
-      // Separate accounts by type
-      const assets = Object.values(balances).filter(acc => acc.type === 'Asset' && acc.balance !== 0);
-      const liabilities = Object.values(balances).filter(acc => acc.type === 'Liability' && acc.balance !== 0);
-      const equity = Object.values(balances).filter(acc => acc.type === 'Equity' && acc.balance !== 0);
+      // Separate accounts by type and filter out zero balances
+      const assets = Object.values(balances).filter(acc => acc.type === 'Assets' && Math.abs(acc.balance) > 0.01);
+      const liabilities = Object.values(balances).filter(acc => acc.type === 'Liabilities' && Math.abs(acc.balance) > 0.01);
+      const equity = Object.values(balances).filter(acc => acc.type === 'Equity' && Math.abs(acc.balance) > 0.01);
 
       const totalAssets = assets.reduce((sum, acc) => sum + acc.balance, 0);
       const totalLiabilities = liabilities.reduce((sum, acc) => sum + Math.abs(acc.balance), 0);
@@ -176,6 +185,7 @@ export const useBalanceSheet = () => {
         { item: 'Total Equity', value: totalEquity.toString() }
       ];
 
+      console.log('Balance Sheet Data:', balanceSheetData);
       setData(balanceSheetData);
     } catch (error) {
       console.error('Error fetching balance sheet:', error);

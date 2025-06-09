@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown, Users, Truck, FileText, LogOut, BookOpen, PieChart, DollarSign, CreditCard } from "lucide-react";
+import { ChevronDown, Users, Truck, FileText, LogOut, BookOpen, PieChart, DollarSign, CreditCard, Plus } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
-const menuItems = [
+const adminMenuItems = [
   {
     title: "Dashboard",
     url: "/dashboard",
@@ -41,6 +41,14 @@ const menuItems = [
     title: "Vendors",
     url: "/vendors",
     icon: Truck,
+  },
+];
+
+const employeeMenuItems = [
+  {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: Plus,
   },
 ];
 
@@ -65,10 +73,13 @@ const statementItems = [
 export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const userRole = user?.user_metadata?.role;
 
   const handleSignOut = async () => {
     await signOut();
   };
+
+  const menuItems = userRole === 'employee' ? employeeMenuItems : adminMenuItems;
 
   return (
     <Sidebar className="border-r border-green-200 bg-white">
@@ -82,7 +93,7 @@ export function AppSidebar() {
           <div>
             <h2 className="text-lg font-semibold text-gray-800">Acco Sight</h2>
             <p className="text-sm text-green-600">
-              {user?.user_metadata?.role === 'admin' ? 'Admin Dashboard' : 'Employee Dashboard'}
+              {userRole === 'admin' ? 'Admin Dashboard' : 'Employee Dashboard'}
             </p>
           </div>
         </div>
@@ -109,33 +120,35 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 rounded-lg transition-colors">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-green-600" />
-                  <span>Statements</span>
-                </div>
-                <ChevronDown className="h-4 w-4 text-green-600" />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-1 ml-8">
-                <SidebarMenu>
-                  {statementItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                        <Link to={item.url} className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm hover:bg-green-50">
-                          <item.icon className="h-4 w-4 text-green-600" />
-                          <span className="text-gray-700">{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {userRole === 'admin' && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 rounded-lg transition-colors">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-green-600" />
+                    <span>Statements</span>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-green-600" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-1 ml-8">
+                  <SidebarMenu>
+                    {statementItems.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                          <Link to={item.url} className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm hover:bg-green-50">
+                            <item.icon className="h-4 w-4 text-green-600" />
+                            <span className="text-gray-700">{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </CollapsibleContent>
+              </Collapsible>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-green-200">

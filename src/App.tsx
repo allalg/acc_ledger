@@ -6,118 +6,81 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import Login from "./pages/Login";
 import Index from "./pages/Index";
+import Login from "./pages/Login";
 import Ledgers from "./pages/Ledgers";
-import Customers from "./pages/Customers";
-import Vendors from "./pages/Vendors";
 import BankStatement from "./pages/BankStatement";
 import ProfitLoss from "./pages/ProfitLoss";
 import BalanceSheet from "./pages/BalanceSheet";
-import NotFound from "./pages/NotFound";
+import Customers from "./pages/Customers";
+import Vendors from "./pages/Vendors";
+import EmployeeDashboard from "./pages/EmployeeDashboard";
+import { useAuth } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+function App() {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-green-50">
-        <div className="text-green-600">Loading...</div>
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
-  
+
   if (!user) {
-    return <Navigate to="/" replace />;
-  }
-  
-  return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-green-50">
-        <AppSidebar />
-        <main className="flex-1">
-          {children}
-        </main>
-      </div>
-    </SidebarProvider>
-  );
-};
-
-const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-green-50">
-        <div className="text-green-600">Loading...</div>
-      </div>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
     );
   }
-  
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  
-  return <>{children}</>;
-};
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
+  const userRole = user?.user_metadata?.role;
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            } />
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            } />
-            <Route path="/ledgers" element={
-              <ProtectedRoute>
-                <Ledgers />
-              </ProtectedRoute>
-            } />
-            <Route path="/customers" element={
-              <ProtectedRoute>
-                <Customers />
-              </ProtectedRoute>
-            } />
-            <Route path="/vendors" element={
-              <ProtectedRoute>
-                <Vendors />
-              </ProtectedRoute>
-            } />
-            <Route path="/bank-statement" element={
-              <ProtectedRoute>
-                <BankStatement />
-              </ProtectedRoute>
-            } />
-            <Route path="/profit-loss" element={
-              <ProtectedRoute>
-                <ProfitLoss />
-              </ProtectedRoute>
-            } />
-            <Route path="/balance-sheet" element={
-              <ProtectedRoute>
-                <BalanceSheet />
-              </ProtectedRoute>
-            } />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <SidebarProvider>
+            <div className="flex min-h-screen">
+              <AppSidebar />
+              <div className="flex-1">
+                <Routes>
+                  {userRole === 'employee' ? (
+                    <>
+                      <Route path="/dashboard" element={<EmployeeDashboard />} />
+                      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    </>
+                  ) : (
+                    <>
+                      <Route path="/dashboard" element={<Index />} />
+                      <Route path="/ledgers" element={<Ledgers />} />
+                      <Route path="/bank-statement" element={<BankStatement />} />
+                      <Route path="/profit-loss" element={<ProfitLoss />} />
+                      <Route path="/balance-sheet" element={<BalanceSheet />} />
+                      <Route path="/customers" element={<Customers />} />
+                      <Route path="/vendors" element={<Vendors />} />
+                      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    </>
+                  )}
+                </Routes>
+              </div>
+            </div>
+          </SidebarProvider>
         </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;

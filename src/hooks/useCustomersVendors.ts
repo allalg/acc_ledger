@@ -29,25 +29,33 @@ export const useCustomers = () => {
         .select(`
           user_id,
           username,
-          role,
-          customer_accounts!inner (
-            balance
-          )
+          role
         `)
         .eq('role', 'customer');
 
       if (error) {
         console.error('Error fetching customers:', error);
         setCustomers([]);
-      } else {
-        const formattedData = data?.map(user => ({
+        return;
+      }
+
+      // Get customer balances
+      const { data: customerAccounts } = await supabase
+        .from('customer_accounts')
+        .select('customer_id, balance');
+
+      const formattedData = data?.map(user => {
+        const customerAccount = customerAccounts?.find(acc => acc.customer_id === user.user_id);
+        return {
           user_id: user.user_id,
           username: user.username,
           role: user.role,
-          balance: user.customer_accounts?.[0]?.balance || 0
-        })) || [];
-        setCustomers(formattedData);
-      }
+          balance: customerAccount?.balance || 0
+        };
+      }) || [];
+
+      console.log('Customer data:', formattedData);
+      setCustomers(formattedData);
     } catch (error) {
       console.error('Error fetching customers:', error);
       setCustomers([]);
@@ -76,25 +84,33 @@ export const useVendors = () => {
         .select(`
           user_id,
           username,
-          role,
-          vendor_accounts!inner (
-            balance
-          )
+          role
         `)
         .eq('role', 'vendor');
 
       if (error) {
         console.error('Error fetching vendors:', error);
         setVendors([]);
-      } else {
-        const formattedData = data?.map(user => ({
+        return;
+      }
+
+      // Get vendor balances
+      const { data: vendorAccounts } = await supabase
+        .from('vendor_accounts')
+        .select('vendor_id, balance');
+
+      const formattedData = data?.map(user => {
+        const vendorAccount = vendorAccounts?.find(acc => acc.vendor_id === user.user_id);
+        return {
           user_id: user.user_id,
           username: user.username,
           role: user.role,
-          balance: user.vendor_accounts?.[0]?.balance || 0
-        })) || [];
-        setVendors(formattedData);
-      }
+          balance: vendorAccount?.balance || 0
+        };
+      }) || [];
+
+      console.log('Vendor data:', formattedData);
+      setVendors(formattedData);
     } catch (error) {
       console.error('Error fetching vendors:', error);
       setVendors([]);
