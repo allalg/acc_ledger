@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,185 +34,233 @@ export const useLedgerData = (ledgerType: string) => {
   const fetchLedgerData = async () => {
     try {
       setLoading(true);
-      let query = '';
+      let result: any[] = [];
 
       switch (ledgerType) {
         case 'accounts-receivable':
-          query = `
-            WITH ar_account AS (
-              SELECT id FROM accounts WHERE name = 'Accounts recievables'
-            ),
-            ar_transactions AS (
-              SELECT
-                t.id AS transaction_id,
-                t.transaction_date,
-                t.description,
-                t.user_id,
-                u.username,
-                t.payment_status,
-                t.reference_transaction_ids,
-                da.name AS debit_account,
-                CASE WHEN t.debit_account_id = ar.id THEN t.amount ELSE 0 END AS debit_val,
-                ca.name AS credit_account,
-                CASE WHEN t.credit_account_id = ar.id THEN t.amount ELSE 0 END AS credit_val
-              FROM transactions t
-              JOIN users u ON u.user_id = t.user_id
-              JOIN accounts da ON da.id = t.debit_account_id
-              JOIN accounts ca ON ca.id = t.credit_account_id
-              JOIN ar_account ar ON (t.debit_account_id = ar.id OR t.credit_account_id = ar.id)
-            )
-            SELECT 
-              transaction_id,
-              transaction_date,
-              description,
-              user_id,
-              username,
-              payment_status,
-              reference_transaction_ids,
-              debit_account,
-              debit_val,
-              credit_account,
-              credit_val,
-              SUM(debit_val - credit_val) OVER (ORDER BY transaction_date, transaction_id) AS running_balance
-            FROM ar_transactions
-            ORDER BY transaction_date, transaction_id;
-          `;
+          // Get AR account ID first
+          const { data: arAccount } = await supabase
+            .from('accounts')
+            .select('id')
+            .eq('name', 'Accounts recievables')
+            .single();
+
+          if (arAccount) {
+            const { data: transactions } = await supabase
+              .from('transactions')
+              .select(`
+                id,
+                transaction_date,
+                description,
+                user_id,
+                payment_status,
+                reference_transaction_ids,
+                amount,
+                debit_account_id,
+                credit_account_id,
+                users!inner(username),
+                debit_account:accounts!transactions_debit_account_id_fkey(name),
+                credit_account:accounts!transactions_credit_account_id_fkey(name)
+              `)
+              .or(`debit_account_id.eq.${arAccount.id},credit_account_id.eq.${arAccount.id}`)
+              .order('transaction_date')
+              .order('id');
+
+            if (transactions) {
+              let runningBalance = 0;
+              result = transactions.map((t: any) => {
+                const debitVal = t.debit_account_id === arAccount.id ? t.amount : 0;
+                const creditVal = t.credit_account_id === arAccount.id ? t.amount : 0;
+                runningBalance += (debitVal - creditVal);
+                
+                return {
+                  transaction_id: t.id,
+                  transaction_date: t.transaction_date,
+                  description: t.description,
+                  user_id: t.user_id,
+                  username: t.users?.username || 'Unknown',
+                  payment_status: t.payment_status,
+                  reference_transaction_ids: t.reference_transaction_ids,
+                  debit_account: t.debit_account?.name || '',
+                  debit_val: debitVal,
+                  credit_account: t.credit_account?.name || '',
+                  credit_val: creditVal,
+                  running_balance: runningBalance
+                };
+              });
+            }
+          }
           break;
 
         case 'accounts-payable':
-          query = `
-            WITH ap_account AS (
-              SELECT id FROM accounts WHERE name = 'Accounts payable'
-            ),
-            ap_transactions AS (
-              SELECT
-                t.id AS transaction_id,
-                t.transaction_date,
-                t.description,
-                t.user_id,
-                u.username,
-                da.name AS debit_account,
-                CASE WHEN t.debit_account_id = ap.id THEN t.amount ELSE 0 END AS debit_value,
-                ca.name AS credit_account,
-                CASE WHEN t.credit_account_id = ap.id THEN t.amount ELSE 0 END AS credit_value
-              FROM transactions t
-              JOIN users u ON u.user_id = t.user_id
-              JOIN accounts da ON da.id = t.debit_account_id
-              JOIN accounts ca ON ca.id = t.credit_account_id
-              JOIN ap_account ap ON (t.debit_account_id = ap.id OR t.credit_account_id = ap.id)
-            )
-            SELECT 
-              transaction_id,
-              transaction_date,
-              description,
-              user_id,
-              username,
-              debit_account,
-              debit_value,
-              credit_account,
-              credit_value,
-              SUM(credit_value - debit_value) OVER (ORDER BY transaction_date, transaction_id) AS running_balance
-            FROM ap_transactions
-            ORDER BY transaction_date, transaction_id;
-          `;
+          // Get AP account ID first
+          const { data: apAccount } = await supabase
+            .from('accounts')
+            .select('id')
+            .eq('name', 'Accounts payable')
+            .single();
+
+          if (apAccount) {
+            const { data: transactions } = await supabase
+              .from('transactions')
+              .select(`
+                id,
+                transaction_date,
+                description,
+                user_id,
+                amount,
+                debit_account_id,
+                credit_account_id,
+                users!inner(username),
+                debit_account:accounts!transactions_debit_account_id_fkey(name),
+                credit_account:accounts!transactions_credit_account_id_fkey(name)
+              `)
+              .or(`debit_account_id.eq.${apAccount.id},credit_account_id.eq.${apAccount.id}`)
+              .order('transaction_date')
+              .order('id');
+
+            if (transactions) {
+              let runningBalance = 0;
+              result = transactions.map((t: any) => {
+                const debitValue = t.debit_account_id === apAccount.id ? t.amount : 0;
+                const creditValue = t.credit_account_id === apAccount.id ? t.amount : 0;
+                runningBalance += (creditValue - debitValue);
+                
+                return {
+                  transaction_id: t.id,
+                  transaction_date: t.transaction_date,
+                  description: t.description,
+                  user_id: t.user_id,
+                  username: t.users?.username || 'Unknown',
+                  debit_account: t.debit_account?.name || '',
+                  debit_value: debitValue,
+                  credit_account: t.credit_account?.name || '',
+                  credit_value: creditValue,
+                  running_balance: runningBalance
+                };
+              });
+            }
+          }
           break;
 
         case 'sales':
-          query = `
-            WITH inventory_account AS (
-              SELECT id FROM accounts WHERE name = 'Inventory'
-            ),
-            sales_transactions AS (
-              SELECT
-                t.id AS transaction_id,
-                t.transaction_date,
-                t.description,
-                u.username,
-                ii.name as item_name,
-                ti.quantity,
-                ti.unit_price,
-                ti.discount,
-                (ti.quantity * ti.unit_price) AS line_total,
-                CASE WHEN t.debit_account_id = ia.id THEN (ti.quantity * ti.unit_price) ELSE 0 END AS debit,
-                CASE WHEN t.credit_account_id = ia.id THEN (ti.quantity * ti.unit_price) ELSE 0 END AS credit
-              FROM transactions t
-              JOIN users u ON u.user_id = t.user_id
-              JOIN transaction_items ti ON ti.transaction_id = t.id
-              JOIN inventory_items ii ON ii.id = ti.item_id
-              JOIN inventory_account ia ON t.credit_account_id = ia.id
-            )
-            SELECT
-              transaction_id,
-              transaction_date,
-              description,
-              username,
-              item_name,
-              quantity,
-              unit_price,
-              discount,
-              line_total,
-              debit,
-              credit,
-              SUM(credit-debit ) OVER (ORDER BY transaction_date, transaction_id) AS running_inventory_balance
-            FROM sales_transactions
-            ORDER BY transaction_date, transaction_id;
-          `;
+          // Get inventory account ID first
+          const { data: inventoryAccount } = await supabase
+            .from('accounts')
+            .select('id')
+            .eq('name', 'Inventory')
+            .single();
+
+          if (inventoryAccount) {
+            const { data: transactions } = await supabase
+              .from('transactions')
+              .select(`
+                id,
+                transaction_date,
+                description,
+                users!inner(username),
+                transaction_items!inner(
+                  quantity,
+                  unit_price,
+                  discount,
+                  inventory_items!inner(name)
+                )
+              `)
+              .eq('credit_account_id', inventoryAccount.id)
+              .order('transaction_date')
+              .order('id');
+
+            if (transactions) {
+              let runningBalance = 0;
+              result = transactions.flatMap((t: any) => 
+                t.transaction_items.map((ti: any) => {
+                  const lineTotal = ti.quantity * ti.unit_price;
+                  const credit = lineTotal;
+                  runningBalance += credit;
+                  
+                  return {
+                    transaction_id: t.id,
+                    transaction_date: t.transaction_date,
+                    description: t.description,
+                    username: t.users?.username || 'Unknown',
+                    item_name: ti.inventory_items?.name || 'Unknown Item',
+                    quantity: ti.quantity,
+                    unit_price: ti.unit_price,
+                    discount: ti.discount || 0,
+                    line_total: lineTotal,
+                    debit: 0,
+                    credit: credit,
+                    running_inventory_balance: runningBalance
+                  };
+                })
+              );
+            }
+          }
           break;
 
         case 'purchases':
-          query = `
-            WITH inventory_account AS (
-              SELECT id FROM accounts WHERE name = 'Inventory'
-            ),
-            purchase_transactions AS (
-              SELECT
-                t.id AS transaction_id,
-                t.transaction_date,
-                t.description,
-                u.username,
-                ii.name AS item_name,
-                ti.quantity,
-                ti.unit_price,
-                ti.discount,
-                (ti.quantity * ti.unit_price - ti.discount) AS line_total,
-                CASE WHEN t.debit_account_id = ia.id THEN (ti.quantity * ti.unit_price - ti.discount) ELSE 0 END AS debit,
-                CASE WHEN t.credit_account_id = ia.id THEN (ti.quantity * ti.unit_price - ti.discount) ELSE 0 END AS credit
-              FROM transactions t
-              JOIN users u ON u.user_id = t.user_id
-              JOIN transaction_items ti ON ti.transaction_id = t.id
-              JOIN inventory_items ii ON ii.id = ti.item_id
-              JOIN inventory_account ia ON t.debit_account_id = ia.id
-            )
-            SELECT
-              transaction_id,
-              transaction_date,
-              description,
-              username,
-              item_name,
-              quantity,
-              unit_price,
-              discount,
-              line_total,
-              debit,
-              credit,
-              SUM(debit - credit) OVER (ORDER BY transaction_date, transaction_id) AS running_inventory_balance
-            FROM purchase_transactions
-            ORDER BY transaction_date, transaction_id;
-          `;
+          // Get inventory account ID first
+          const { data: invAccount } = await supabase
+            .from('accounts')
+            .select('id')
+            .eq('name', 'Inventory')
+            .single();
+
+          if (invAccount) {
+            const { data: transactions } = await supabase
+              .from('transactions')
+              .select(`
+                id,
+                transaction_date,
+                description,
+                users!inner(username),
+                transaction_items!inner(
+                  quantity,
+                  unit_price,
+                  discount,
+                  inventory_items!inner(name)
+                )
+              `)
+              .eq('debit_account_id', invAccount.id)
+              .order('transaction_date')
+              .order('id');
+
+            if (transactions) {
+              let runningBalance = 0;
+              result = transactions.flatMap((t: any) => 
+                t.transaction_items.map((ti: any) => {
+                  const lineTotal = (ti.quantity * ti.unit_price) - (ti.discount || 0);
+                  const debit = lineTotal;
+                  runningBalance += debit;
+                  
+                  return {
+                    transaction_id: t.id,
+                    transaction_date: t.transaction_date,
+                    description: t.description,
+                    username: t.users?.username || 'Unknown',
+                    item_name: ti.inventory_items?.name || 'Unknown Item',
+                    quantity: ti.quantity,
+                    unit_price: ti.unit_price,
+                    discount: ti.discount || 0,
+                    line_total: lineTotal,
+                    debit: debit,
+                    credit: 0,
+                    running_inventory_balance: runningBalance
+                  };
+                })
+              );
+            }
+          }
           break;
 
         default:
-          setData([]);
-          setLoading(false);
-          return;
+          result = [];
       }
 
-      // Use the correct Supabase RPC function for custom SQL
-      const { data: ledgerData, error } = await supabase.rpc('execute_sql', { query });
-      // Ensure type safety: setData only if array, else empty array
-      setData(Array.isArray(ledgerData) ? ledgerData : []);
+      setData(result);
     } catch (error) {
       console.error('Error fetching ledger data:', error);
+      setData([]);
     } finally {
       setLoading(false);
     }

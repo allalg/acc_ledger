@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -26,18 +27,63 @@ export const useBankStatement = () => {
     try {
       setLoading(true);
       
-      // Instead of 'execute_sql', use the correct RPC function for type safety
-      // For BankStatement, use 'get_total_bank_balance'
-      const { data: bankData, error } = await supabase.rpc('get_total_bank_balance');
-      
-      if (error) {
-        console.error('Error fetching bank statement:', error);
+      // Get Bank account ID first
+      const { data: bankAccount } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('name', 'Bank')
+        .single();
+
+      if (bankAccount) {
+        const { data: transactions, error } = await supabase
+          .from('transactions')
+          .select(`
+            id,
+            transaction_date,
+            description,
+            user_id,
+            amount,
+            debit_account_id,
+            credit_account_id,
+            users(username),
+            debit_account:accounts!transactions_debit_account_id_fkey(name),
+            credit_account:accounts!transactions_credit_account_id_fkey(name)
+          `)
+          .or(`debit_account_id.eq.${bankAccount.id},credit_account_id.eq.${bankAccount.id}`)
+          .order('transaction_date')
+          .order('id');
+
+        if (error) {
+          console.error('Error fetching bank transactions:', error);
+          setData([]);
+        } else if (transactions) {
+          let runningBalance = 0;
+          const formattedData = transactions.map((t: any) => {
+            const debitValue = t.debit_account_id === bankAccount.id ? t.amount : 0;
+            const creditValue = t.credit_account_id === bankAccount.id ? t.amount : 0;
+            runningBalance += (debitValue - creditValue);
+            
+            return {
+              transaction_id: t.id,
+              transaction_date: t.transaction_date,
+              description: t.description || '',
+              username: t.users?.username || 'System/Auto',
+              debit_account: t.debit_account?.name || '',
+              debit_value: debitValue,
+              credit_account: t.credit_account?.name || '',
+              credit_value: creditValue,
+              running_bank_balance: runningBalance
+            };
+          });
+          setData(formattedData);
+        }
       } else {
-        // For setData, ensure type safety by checking if data is an array
-        setData(Array.isArray(bankData) ? bankData : []);
+        console.error('Bank account not found');
+        setData([]);
       }
     } catch (error) {
       console.error('Error fetching bank statement:', error);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -58,17 +104,102 @@ export const useProfitLossStatement = () => {
     try {
       setLoading(true);
       
-      // For ProfitLossStatement, use 'get_net_profit_loss'
-      const { data: profitLossData, error } = await supabase.rpc('get_net_profit_loss');
+      // Calculate beginning inventory
+      const { data: inventoryItems } = await supabase
+        .from('inventory_items')
+        .select('opening_stock, cost_price, current_stock');
+
+      let beginningInventory = 0;
+      let endingInventory = 0;
       
-      if (error) {
-        console.error('Error fetching profit/loss statement:', error);
-      } else {
-        // For setData, ensure type safety by checking if data is an array
-        setData(Array.isArray(profitLossData) ? profitLossData : []);
+      if (inventoryItems) {
+        beginningInventory = inventoryItems.reduce((sum, item) => 
+          sum + (item.opening_stock || 0) * (item.cost_price || 0), 0);
+        endingInventory = inventoryItems.reduce((sum, item) => 
+          sum + (item.current_stock || 0) * (item.cost_price || 0), 0);
       }
+
+      // Get inventory account ID for purchases
+      const { data: inventoryAccount } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('name', 'Inventory')
+        .single();
+
+      let totalPurchases = 0;
+      if (inventoryAccount) {
+        const { data: purchaseTransactions } = await supabase
+          .from('transactions')
+          .select('amount')
+          .eq('debit_account_id', inventoryAccount.id);
+        
+        totalPurchases = purchaseTransactions?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+      }
+
+      // Calculate income
+      const { data: incomeAccounts } = await supabase
+        .from('accounts')
+        .select(`
+          id,
+          account_heads!inner(name)
+        `)
+        .eq('account_heads.name', 'Income');
+
+      let totalIncome = 0;
+      if (incomeAccounts && incomeAccounts.length > 0) {
+        const incomeAccountIds = incomeAccounts.map(acc => acc.id);
+        const { data: incomeTransactions } = await supabase
+          .from('transactions')
+          .select('amount')
+          .in('credit_account_id', incomeAccountIds);
+        
+        totalIncome = incomeTransactions?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+      }
+
+      // Calculate expenses (excluding inventory)
+      const { data: expenseAccounts } = await supabase
+        .from('accounts')
+        .select(`
+          id,
+          account_heads!inner(name)
+        `)
+        .eq('account_heads.name', 'Expense')
+        .neq('id', inventoryAccount?.id || -1);
+
+      let operatingExpenses = 0;
+      if (expenseAccounts && expenseAccounts.length > 0) {
+        const expenseAccountIds = expenseAccounts.map(acc => acc.id);
+        const { data: expenseTransactions } = await supabase
+          .from('transactions')
+          .select('amount')
+          .in('debit_account_id', expenseAccountIds);
+        
+        operatingExpenses = expenseTransactions?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+      }
+
+      const cogs = beginningInventory + totalPurchases - endingInventory;
+      const grossProfit = totalIncome - cogs;
+      const netProfitLoss = grossProfit - operatingExpenses;
+
+      const profitLossData = [
+        { item: 'Total Income', value: totalIncome.toString() },
+        { item: 'Beginning Inventory', value: beginningInventory.toString() },
+        { item: 'Purchases', value: totalPurchases.toString() },
+        { item: 'Ending Inventory', value: endingInventory.toString() },
+        { item: 'Cost of Goods Sold', value: cogs.toString() },
+        { item: 'Gross Profit', value: grossProfit.toString() },
+        { item: 'Operating Expenses', value: operatingExpenses.toString() },
+        { item: 'Net Profit/Loss', value: netProfitLoss.toString() },
+        { 
+          item: 'Profit Status', 
+          value: netProfitLoss > 0 ? 'Profit' : netProfitLoss < 0 ? 'Loss' : 'Break Even'
+        }
+      ];
+
+      setData(profitLossData);
     } catch (error) {
       console.error('Error fetching profit/loss statement:', error);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -89,17 +220,110 @@ export const useBalanceSheet = () => {
     try {
       setLoading(true);
       
-      // For BalanceSheet, use 'get_net_profit_loss' or create a new function if needed
-      const { data: balanceSheetData, error } = await supabase.rpc('get_net_profit_loss');
+      // For now, use the same data as P&L since they have similar structure
+      // In a real accounting system, balance sheet would show assets, liabilities, equity
+      const { data: profitLossData } = await new Promise<{data: StatementItem[]}>((resolve) => {
+        // Reuse the P&L calculation logic here
+        // This is a simplified approach - in reality balance sheet would be different
+        resolve({ data: [] });
+      });
+
+      // Calculate beginning inventory
+      const { data: inventoryItems } = await supabase
+        .from('inventory_items')
+        .select('opening_stock, cost_price, current_stock');
+
+      let beginningInventory = 0;
+      let endingInventory = 0;
       
-      if (error) {
-        console.error('Error fetching balance sheet:', error);
-      } else {
-        // For setData, ensure type safety by checking if data is an array
-        setData(Array.isArray(balanceSheetData) ? balanceSheetData : []);
+      if (inventoryItems) {
+        beginningInventory = inventoryItems.reduce((sum, item) => 
+          sum + (item.opening_stock || 0) * (item.cost_price || 0), 0);
+        endingInventory = inventoryItems.reduce((sum, item) => 
+          sum + (item.current_stock || 0) * (item.cost_price || 0), 0);
       }
+
+      // Get inventory account ID for purchases
+      const { data: inventoryAccount } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('name', 'Inventory')
+        .single();
+
+      let totalPurchases = 0;
+      if (inventoryAccount) {
+        const { data: purchaseTransactions } = await supabase
+          .from('transactions')
+          .select('amount')
+          .eq('debit_account_id', inventoryAccount.id);
+        
+        totalPurchases = purchaseTransactions?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+      }
+
+      // Calculate income
+      const { data: incomeAccounts } = await supabase
+        .from('accounts')
+        .select(`
+          id,
+          account_heads!inner(name)
+        `)
+        .eq('account_heads.name', 'Income');
+
+      let totalIncome = 0;
+      if (incomeAccounts && incomeAccounts.length > 0) {
+        const incomeAccountIds = incomeAccounts.map(acc => acc.id);
+        const { data: incomeTransactions } = await supabase
+          .from('transactions')
+          .select('amount')
+          .in('credit_account_id', incomeAccountIds);
+        
+        totalIncome = incomeTransactions?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+      }
+
+      // Calculate expenses (excluding inventory)
+      const { data: expenseAccounts } = await supabase
+        .from('accounts')
+        .select(`
+          id,
+          account_heads!inner(name)
+        `)
+        .eq('account_heads.name', 'Expense')
+        .neq('id', inventoryAccount?.id || -1);
+
+      let operatingExpenses = 0;
+      if (expenseAccounts && expenseAccounts.length > 0) {
+        const expenseAccountIds = expenseAccounts.map(acc => acc.id);
+        const { data: expenseTransactions } = await supabase
+          .from('transactions')
+          .select('amount')
+          .in('debit_account_id', expenseAccountIds);
+        
+        operatingExpenses = expenseTransactions?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+      }
+
+      const cogs = beginningInventory + totalPurchases - endingInventory;
+      const grossProfit = totalIncome - cogs;
+      const netProfitLoss = grossProfit - operatingExpenses;
+
+      const balanceSheetData = [
+        { item: 'Total Income', value: totalIncome.toString() },
+        { item: 'Beginning Inventory', value: beginningInventory.toString() },
+        { item: 'Purchases', value: totalPurchases.toString() },
+        { item: 'Ending Inventory', value: endingInventory.toString() },
+        { item: 'Cost of Goods Sold', value: cogs.toString() },
+        { item: 'Gross Profit', value: grossProfit.toString() },
+        { item: 'Operating Expenses', value: operatingExpenses.toString() },
+        { item: 'Net Profit/Loss', value: netProfitLoss.toString() },
+        { 
+          item: 'Profit Status', 
+          value: netProfitLoss > 0 ? 'Profit' : netProfitLoss < 0 ? 'Loss' : 'Break Even'
+        }
+      ];
+
+      setData(balanceSheetData);
     } catch (error) {
       console.error('Error fetching balance sheet:', error);
+      setData([]);
     } finally {
       setLoading(false);
     }

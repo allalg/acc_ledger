@@ -30,7 +30,7 @@ export const useCustomers = () => {
           user_id,
           username,
           role,
-          customer_accounts (
+          customer_accounts!inner (
             balance
           )
         `)
@@ -38,6 +38,7 @@ export const useCustomers = () => {
 
       if (error) {
         console.error('Error fetching customers:', error);
+        setCustomers([]);
       } else {
         const formattedData = data?.map(user => ({
           user_id: user.user_id,
@@ -49,6 +50,7 @@ export const useCustomers = () => {
       }
     } catch (error) {
       console.error('Error fetching customers:', error);
+      setCustomers([]);
     } finally {
       setLoading(false);
     }
@@ -75,7 +77,7 @@ export const useVendors = () => {
           user_id,
           username,
           role,
-          vendor_accounts (
+          vendor_accounts!inner (
             balance
           )
         `)
@@ -83,6 +85,7 @@ export const useVendors = () => {
 
       if (error) {
         console.error('Error fetching vendors:', error);
+        setVendors([]);
       } else {
         const formattedData = data?.map(user => ({
           user_id: user.user_id,
@@ -94,6 +97,7 @@ export const useVendors = () => {
       }
     } catch (error) {
       console.error('Error fetching vendors:', error);
+      setVendors([]);
     } finally {
       setLoading(false);
     }
