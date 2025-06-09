@@ -24,6 +24,15 @@ const Ledgers = () => {
 
   const handleSaveToPDF = async () => {
     try {
+      if (!ledgerData || ledgerData.length === 0) {
+        toast({
+          title: "No Data",
+          description: "No ledger data available to export.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('save-ledger-pdf', {
         body: {
           ledgerData,
@@ -34,9 +43,20 @@ const Ledgers = () => {
 
       if (error) throw error;
 
+      // Create and download the file
+      const blob = new Blob([data], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedLedger}-ledger-${new Date().toISOString().split('T')[0]}.html`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
       toast({
         title: "PDF Generated",
-        description: "Ledger report has been saved to PDF successfully.",
+        description: "Ledger report has been saved successfully.",
       });
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -49,10 +69,12 @@ const Ledgers = () => {
   };
 
   const formatCurrency = (amount: number) => {
+    if (amount === null || amount === undefined) return '-';
     return `₹${Math.abs(amount).toLocaleString('en-IN')}`;
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-IN');
   };
 
@@ -162,6 +184,12 @@ const Ledgers = () => {
                   </Table>
                 </div>
               </ScrollArea>
+            )}
+            
+            {!loading && ledgerData.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No transactions found for this ledger.
+              </div>
             )}
           </CardContent>
         </Card>

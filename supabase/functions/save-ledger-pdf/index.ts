@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,13 +15,23 @@ serve(async (req) => {
   try {
     const { ledgerData, ledgerType, filename } = await req.json();
 
+    if (!ledgerData || !Array.isArray(ledgerData) || ledgerData.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No data provided for PDF generation' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     // Create HTML content for PDF
     const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>${ledgerType} Ledger</title>
+        <title>${ledgerType || 'Ledger'}</title>
         <style>
           body { 
             font-family: Arial, sans-serif; 
@@ -50,12 +59,12 @@ serve(async (req) => {
             width: 100%; 
             border-collapse: collapse; 
             margin-top: 20px;
+            font-size: 11px;
           }
           th, td { 
             border: 1px solid #d1d5db; 
-            padding: 8px; 
+            padding: 6px; 
             text-align: left;
-            font-size: 12px;
           }
           th { 
             background-color: #f3f4f6; 
@@ -71,12 +80,15 @@ serve(async (req) => {
             font-size: 10px;
             color: #6b7280;
           }
+          .break-page {
+            page-break-before: always;
+          }
         </style>
       </head>
       <body>
         <div class="header">
           <div class="logo">Acco Sight</div>
-          <div class="title">${ledgerType} Ledger</div>
+          <div class="title">${ledgerType || 'Financial Report'}</div>
           <div>Generated on: ${new Date().toLocaleDateString('en-IN')}</div>
         </div>
         
@@ -84,20 +96,24 @@ serve(async (req) => {
           <thead>
             <tr>
               ${Object.keys(ledgerData[0] || {}).map(key => 
-                `<th>${key.replace(/_/g, ' ').toUpperCase()}</th>`
+                `<th>${key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').toUpperCase()}</th>`
               ).join('')}
             </tr>
           </thead>
           <tbody>
             ${ledgerData.map(row => `
               <tr>
-                ${Object.values(row).map((value, index) => {
-                  const key = Object.keys(row)[index];
-                  const isCurrency = key.includes('balance') || key.includes('value') || key.includes('amount');
-                  const formattedValue = isCurrency && typeof value === 'number' 
-                    ? `₹${value.toLocaleString('en-IN')}`
-                    : value;
-                  return `<td class="${isCurrency ? 'currency' : ''}">${formattedValue}</td>`;
+                ${Object.entries(row).map(([key, value]) => {
+                  const isCurrency = key.includes('balance') || key.includes('value') || key.includes('amount') || key.includes('debit') || key.includes('credit');
+                  let formattedValue = value;
+                  
+                  if (isCurrency && typeof value === 'number') {
+                    formattedValue = `₹${Math.abs(value).toLocaleString('en-IN')}`;
+                  } else if (key.includes('date') && value) {
+                    formattedValue = new Date(value).toLocaleDateString('en-IN');
+                  }
+                  
+                  return `<td class="${isCurrency ? 'currency' : ''}">${formattedValue || '-'}</td>`;
                 }).join('')}
               </tr>
             `).join('')}
@@ -116,7 +132,7 @@ serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/html',
-        'Content-Disposition': `attachment; filename="${filename || 'ledger'}.html"`
+        'Content-Disposition': `attachment; filename="${filename || 'report'}.html"`
       }
     });
 
@@ -124,7 +140,7 @@ serve(async (req) => {
     console.error('Error generating PDF:', error);
     
     return new Response(
-      JSON.stringify({ error: 'Failed to generate PDF' }),
+      JSON.stringify({ error: 'Failed to generate PDF', details: error.message }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

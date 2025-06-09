@@ -1,4 +1,3 @@
-
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,16 +6,55 @@ import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProfitLossStatement } from "@/hooks/useStatements";
+import { supabase } from "@/integrations/supabase/client";
 
 const ProfitLoss = () => {
   const { data: statementData, loading } = useProfitLossStatement();
 
-  const handleSaveToPDF = () => {
-    toast({
-      title: "PDF Generated",
-      description: "Profit & Loss statement has been saved to PDF successfully.",
-    });
-    console.log("Saving P&L statement to PDF...");
+  const handleSaveToPDF = async () => {
+    try {
+      if (!statementData || statementData.length === 0) {
+        toast({
+          title: "No Data",
+          description: "No profit & loss data available to export.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('save-ledger-pdf', {
+        body: {
+          ledgerData: statementData,
+          ledgerType: "Profit & Loss Statement",
+          filename: `profit-loss-statement-${new Date().toISOString().split('T')[0]}`
+        }
+      });
+
+      if (error) throw error;
+
+      // Create and download the file
+      const blob = new Blob([data], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `profit-loss-statement-${new Date().toISOString().split('T')[0]}.html`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "PDF Generated",
+        description: "Profit & Loss statement has been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF report.",
+        variant: "destructive",
+      });
+    }
   };
 
   const formatCurrency = (value: string) => {
@@ -107,6 +145,12 @@ const ProfitLoss = () => {
                   </div>
                 )}
               </>
+            )}
+            
+            {!loading && statementData.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No profit & loss data available.
+              </div>
             )}
           </CardContent>
         </Card>
