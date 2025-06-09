@@ -112,55 +112,38 @@ export const useBalanceSheet = () => {
     try {
       setLoading(true);
       
-      // Get asset accounts and their balances
-      const { data: assetTransactions } = await supabase
-        .from('transactions')
+      // Get account balances using the correct structure
+      const { data: accountBalances } = await supabase
+        .from('accounts')
         .select(`
-          amount,
-          debit_account_id,
-          credit_account_id,
-          accounts!debit_account_id(name, account_heads(name)),
-          credit_accounts:accounts!credit_account_id(name, account_heads(name))
+          id,
+          name,
+          account_heads(name)
         `);
 
-      const assetBalances: { [key: string]: number } = {};
-      const liabilityBalances: { [key: string]: number } = {};
-      const equityBalances: { [key: string]: number } = {};
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('debit_account_id, credit_account_id, amount');
 
-      assetTransactions?.forEach(txn => {
-        const debitAccount = txn.accounts as any;
-        const creditAccount = txn.credit_accounts as any;
-        
-        // Process debit side
-        if (debitAccount?.account_heads?.name === 'Asset') {
-          const accountName = debitAccount.name;
-          assetBalances[accountName] = (assetBalances[accountName] || 0) + (txn.amount || 0);
+      // Calculate balances for each account
+      const balances: { [key: string]: { balance: number; type: string; name: string } } = {};
+      
+      accountBalances?.forEach(account => {
+        const accountType = (account.account_heads as any)?.name;
+        balances[account.id] = {
+          balance: 0,
+          type: accountType,
+          name: account.name
+        };
+      });
+
+      // Calculate account balances from transactions
+      transactions?.forEach(txn => {
+        if (txn.debit_account_id && balances[txn.debit_account_id]) {
+          balances[txn.debit_account_id].balance += txn.amount;
         }
-        
-        // Process credit side
-        if (creditAccount?.account_heads?.name === 'Asset') {
-          const accountName = creditAccount.name;
-          assetBalances[accountName] = (assetBalances[accountName] || 0) - (txn.amount || 0);
-        }
-        
-        if (creditAccount?.account_heads?.name === 'Liability') {
-          const accountName = creditAccount.name;
-          liabilityBalances[accountName] = (liabilityBalances[accountName] || 0) + (txn.amount || 0);
-        }
-        
-        if (debitAccount?.account_heads?.name === 'Liability') {
-          const accountName = debitAccount.name;
-          liabilityBalances[accountName] = (liabilityBalances[accountName] || 0) - (txn.amount || 0);
-        }
-        
-        if (creditAccount?.account_heads?.name === 'Equity') {
-          const accountName = creditAccount.name;
-          equityBalances[accountName] = (equityBalances[accountName] || 0) + (txn.amount || 0);
-        }
-        
-        if (debitAccount?.account_heads?.name === 'Equity') {
-          const accountName = debitAccount.name;
-          equityBalances[accountName] = (equityBalances[accountName] || 0) - (txn.amount || 0);
+        if (txn.credit_account_id && balances[txn.credit_account_id]) {
+          balances[txn.credit_account_id].balance -= txn.amount;
         }
       });
 
@@ -169,25 +152,28 @@ export const useBalanceSheet = () => {
       const netProfitItem = profitData.find(item => item.item === 'Net Profit/Loss');
       const netProfit = parseFloat(netProfitItem?.value || '0');
 
+      // Separate accounts by type
+      const assets = Object.values(balances).filter(acc => acc.type === 'Asset' && acc.balance !== 0);
+      const liabilities = Object.values(balances).filter(acc => acc.type === 'Liability' && acc.balance !== 0);
+      const equity = Object.values(balances).filter(acc => acc.type === 'Equity' && acc.balance !== 0);
+
+      const totalAssets = assets.reduce((sum, acc) => sum + acc.balance, 0);
+      const totalLiabilities = liabilities.reduce((sum, acc) => sum + Math.abs(acc.balance), 0);
+      const totalEquity = equity.reduce((sum, acc) => sum + Math.abs(acc.balance), 0) + netProfit;
+
       const balanceSheetData: StatementItem[] = [
         { item: 'ASSETS', value: '' },
-        ...Object.entries(assetBalances)
-          .filter(([_, balance]) => balance !== 0)
-          .map(([name, balance]) => ({ item: name, value: balance.toString() })),
-        { item: 'Total Assets', value: Object.values(assetBalances).reduce((sum, bal) => sum + bal, 0).toString() },
+        ...assets.map(acc => ({ item: acc.name, value: acc.balance.toString() })),
+        { item: 'Total Assets', value: totalAssets.toString() },
         { item: '', value: '' },
         { item: 'LIABILITIES', value: '' },
-        ...Object.entries(liabilityBalances)
-          .filter(([_, balance]) => balance !== 0)
-          .map(([name, balance]) => ({ item: name, value: balance.toString() })),
-        { item: 'Total Liabilities', value: Object.values(liabilityBalances).reduce((sum, bal) => sum + bal, 0).toString() },
+        ...liabilities.map(acc => ({ item: acc.name, value: Math.abs(acc.balance).toString() })),
+        { item: 'Total Liabilities', value: totalLiabilities.toString() },
         { item: '', value: '' },
         { item: 'EQUITY', value: '' },
-        ...Object.entries(equityBalances)
-          .filter(([_, balance]) => balance !== 0)
-          .map(([name, balance]) => ({ item: name, value: balance.toString() })),
+        ...equity.map(acc => ({ item: acc.name, value: Math.abs(acc.balance).toString() })),
         { item: 'Retained Earnings', value: netProfit.toString() },
-        { item: 'Total Equity', value: (Object.values(equityBalances).reduce((sum, bal) => sum + bal, 0) + netProfit).toString() }
+        { item: 'Total Equity', value: totalEquity.toString() }
       ];
 
       setData(balanceSheetData);
