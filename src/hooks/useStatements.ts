@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface StatementItem {
   item: string;
   value: string;
-}
+}//lets go
 
 interface BankTransaction {
   transaction_id: number;
