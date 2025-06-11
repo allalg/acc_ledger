@@ -439,6 +439,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      execute_sql: {
+        Args: { sql_query: string }
+        Returns: Json
+      }
       get_net_profit_loss: {
         Args: Record<PropertyKey, never>
         Returns: Json
