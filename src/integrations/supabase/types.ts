@@ -447,10 +447,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
-      promote_misc_vendor: {
-        Args: { m_vendor_id: number }
-        Returns: undefined
-      }
     }
     Enums: {
       [_ in never]: never

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -19,6 +18,12 @@ interface BankTransaction {
   running_bank_balance: number;
 }
 
+interface BalanceSheetItem {
+  section: string;
+  account_name: string;
+  amount: string;
+}
+
 export const useProfitLossStatement = () => {
   const [data, setData] = useState<StatementItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,76 +32,88 @@ export const useProfitLossStatement = () => {
     try {
       setLoading(true);
       
-      // Get beginning inventory value
-      const { data: inventoryItems } = await supabase
-        .from('inventory_items')
-        .select('opening_stock, cost_price, current_stock');
+      const { data: plData, error } = await supabase.rpc('execute_sql', {
+        sql_query: `
+          WITH 
+          beginning_inventory AS (
+              SELECT COALESCE(SUM(opening_stock * cost_price), 0) AS value
+              FROM inventory_items
+          ),
 
-      const beginningInventory = inventoryItems?.reduce((sum, item) => 
-        sum + (item.opening_stock || 0) * (item.cost_price || 0), 0) || 0;
-      
-      const endingInventory = inventoryItems?.reduce((sum, item) => 
-        sum + (item.current_stock || 0) * (item.cost_price || 0), 0) || 0;
+          ending_inventory AS (
+              SELECT COALESCE(SUM(current_stock * cost_price), 0) AS value
+              FROM inventory_items
+          ),
 
-      // Get total purchases (debit to inventory account id 4)
-      const { data: purchases } = await supabase
-        .from('transactions')
-        .select('amount')
-        .eq('debit_account_id', 4);
+          total_purchases AS (
+              SELECT COALESCE(SUM(amount), 0) AS amount
+              FROM transactions
+              WHERE debit_account_id = 4 -- Inventory account ID
+          ),
 
-      const totalPurchases = purchases?.reduce((sum, txn) => sum + (txn.amount || 0), 0) || 0;
+          cogs AS (
+              SELECT 
+                   (SELECT value FROM beginning_inventory) +
+                   (SELECT amount FROM total_purchases) -
+                   (SELECT value FROM ending_inventory) AS cost_of_goods_sold
+          ),
 
-      // Get total income (credits to income accounts)
-      const { data: incomeTransactions } = await supabase
-        .from('transactions')
-        .select(`
-          amount,
-          accounts!credit_account_id(
-            account_heads(name)
+          total_income AS (
+              SELECT COALESCE(SUM(t.amount), 0) AS amount
+              FROM transactions t
+              JOIN accounts a ON a.id = t.credit_account_id
+              JOIN account_heads ah ON ah.id = a.account_head_id
+              WHERE a.name='Inventory'
+              OR ah.name = 'Income'
+          ),
+
+          operating_expenses AS (
+              SELECT COALESCE(SUM(t.amount), 0) AS amount
+              FROM transactions t
+              JOIN accounts a ON a.id = t.debit_account_id
+              JOIN account_heads ah ON ah.id = a.account_head_id
+              WHERE ah.name = 'Expense' AND a.id != 4
+          ),
+
+          summary AS (
+              SELECT 
+                  (SELECT amount FROM total_income) AS total_income,
+                  (SELECT amount FROM total_purchases) AS total_purchases,
+                  (SELECT value FROM beginning_inventory) AS beginning_inventory_value,
+                  (SELECT value FROM ending_inventory) AS ending_inventory_value,
+                  (SELECT cost_of_goods_sold FROM cogs) AS cogs,
+                  (SELECT amount FROM operating_expenses) AS operating_expenses
           )
-        `);
 
-      const totalIncome = incomeTransactions?.reduce((sum, txn) => {
-        const accountHead = (txn.accounts as any)?.account_heads?.name;
-        return accountHead === 'Income' ? sum + (txn.amount || 0) : sum;
-      }, 0) || 0;
+          SELECT 'Total Income' AS item, total_income::TEXT AS value FROM summary
+          UNION ALL
+          SELECT 'Beginning Inventory', beginning_inventory_value::TEXT FROM summary
+          UNION ALL
+          SELECT 'Purchases', total_purchases::TEXT FROM summary
+          UNION ALL
+          SELECT 'Ending Inventory', ending_inventory_value::TEXT FROM summary
+          UNION ALL
+          SELECT 'Cost of Goods Sold', cogs::TEXT FROM summary
+          UNION ALL
+          SELECT 'Gross Profit', (total_income - cogs)::TEXT FROM summary
+          UNION ALL
+          SELECT 'Operating Expenses', operating_expenses::TEXT FROM summary
+          UNION ALL
+          SELECT 'Net Profit/Loss', (total_income - cogs - operating_expenses)::TEXT FROM summary
+          UNION ALL
+          SELECT 'Profit Status', 
+              CASE 
+                  WHEN (total_income - cogs - operating_expenses) > 0 THEN 'Profit'
+                  WHEN (total_income - cogs - operating_expenses) < 0 THEN 'Loss'
+                  ELSE 'Break Even'
+              END::TEXT
+          FROM summary;
+        `
+      });
 
-      // Get operating expenses (debits to expense accounts, excluding inventory)
-      const { data: expenseTransactions } = await supabase
-        .from('transactions')
-        .select(`
-          amount,
-          accounts!debit_account_id(
-            id,
-            account_heads(name)
-          )
-        `);
+      if (error) throw error;
 
-      const operatingExpenses = expenseTransactions?.reduce((sum, txn) => {
-        const account = txn.accounts as any;
-        const accountHead = account?.account_heads?.name;
-        const accountId = account?.id;
-        return accountHead === 'Expense' && accountId !== 4 ? sum + (txn.amount || 0) : sum;
-      }, 0) || 0;
-
-      const cogs = beginningInventory + totalPurchases - endingInventory;
-      const grossProfit = totalIncome - cogs;
-      const netProfitLoss = grossProfit - operatingExpenses;
-
-      const profitStatus = netProfitLoss > 0 ? 'Profit' : netProfitLoss < 0 ? 'Loss' : 'Break Even';
-
-      const statementData: StatementItem[] = [
-        { item: 'Total Income', value: totalIncome.toString() },
-        { item: 'Beginning Inventory', value: beginningInventory.toString() },
-        { item: 'Purchases', value: totalPurchases.toString() },
-        { item: 'Ending Inventory', value: endingInventory.toString() },
-        { item: 'Cost of Goods Sold', value: cogs.toString() },
-        { item: 'Gross Profit', value: grossProfit.toString() },
-        { item: 'Operating Expenses', value: operatingExpenses.toString() },
-        { item: 'Net Profit/Loss', value: netProfitLoss.toString() },
-        { item: 'Profit Status', value: profitStatus }
-      ];
-
+      const statementData: StatementItem[] = plData?.result || [];
       setData(statementData);
     } catch (error) {
       console.error('Error fetching P&L statement:', error);
@@ -121,69 +138,121 @@ export const useBalanceSheet = () => {
     try {
       setLoading(true);
       
-      // Get account balances with proper joins
-      const { data: accountsData } = await supabase
-        .from('accounts')
-        .select(`
-          id,
-          name,
-          account_heads(name)
-        `);
+      const { data: bsData, error } = await supabase.rpc('execute_sql', {
+        sql_query: `
+          WITH account_balances AS (
+            SELECT
+              a.id,
+              a.name AS account_name,
+              ah.name AS account_type,
+              SUM(CASE WHEN t.debit_account_id = a.id THEN t.amount ELSE 0 END)
+              - SUM(CASE WHEN t.credit_account_id = a.id THEN t.amount ELSE 0 END)
+              AS balance
+            FROM accounts a
+            JOIN account_heads ah ON ah.id = a.account_head_id
+            LEFT JOIN transactions t
+              ON t.debit_account_id = a.id OR t.credit_account_id = a.id
+            GROUP BY a.id, a.name, ah.name
+          ),
+          beginning_inventory AS (
+            SELECT COALESCE(SUM(opening_stock * cost_price),0) AS value FROM inventory_items
+          ),
+          ending_inventory AS (
+            SELECT COALESCE(SUM(current_stock * cost_price),0) AS value FROM inventory_items
+          ),
+          total_purchases AS (
+            SELECT COALESCE(SUM(amount),0) AS amount FROM transactions WHERE debit_account_id = 4
+          ),
+          cogs AS (
+            SELECT (SELECT value FROM beginning_inventory)
+                 + (SELECT amount FROM total_purchases)
+                 - (SELECT value FROM ending_inventory) AS value
+          ),
+          total_income AS (
+            SELECT COALESCE(SUM(t.amount),0) AS amount
+            FROM transactions t
+            JOIN accounts a ON a.id = t.credit_account_id
+            JOIN account_heads ah ON ah.id = a.account_head_id
+            WHERE a.name='Inventory' OR ah.name='Income'
+          ),
+          operating_expenses AS (
+            SELECT COALESCE(SUM(t.amount),0) AS amount
+            FROM transactions t
+            JOIN accounts a ON a.id = t.debit_account_id
+            JOIN account_heads ah ON ah.id = a.account_head_id
+            WHERE ah.name='Expense' AND a.id != 4
+          ),
+          net_profit_calc AS (
+            SELECT (SELECT amount FROM total_income)
+                 - (SELECT value FROM cogs)
+                 - (SELECT amount FROM operating_expenses)
+                 AS net_profit
+          ),
+          assets AS (
+            SELECT account_name, balance::numeric AS amount
+            FROM account_balances WHERE account_type='Assets'
+          ),
+          assets_total AS (
+            SELECT 'Total Assets' AS account_name, SUM(amount) AS amount FROM assets
+          ),
+          liabilities AS (
+            SELECT account_name, -balance::numeric AS amount
+            FROM account_balances WHERE account_type='Liabilities'
+          ),
+          liabilities_total AS (
+            SELECT 'Total Liabilities' AS account_name, SUM(amount) AS amount FROM liabilities
+          ),
+          equity AS (
+            SELECT account_name, -balance::numeric AS amount
+            FROM account_balances WHERE account_type='Equity'
+          ),
+          equity_net_profit AS (
+            SELECT account_name, amount FROM equity
+            UNION ALL
+            SELECT 'Net Profit for the Period', net_profit FROM net_profit_calc
+          ),
+          equity_total AS (
+            SELECT 'Total Equity' AS account_name, SUM(amount) AS amount FROM equity_net_profit
+          ),
+          liabilities_equity_total AS (
+            SELECT 'Total Liabilities & Equity' AS account_name,
+                   (SELECT amount FROM liabilities_total) + (SELECT amount FROM equity_total) AS amount
+          ),
+          final_ordered AS (
+            SELECT 'Assets' AS section, account_name, ROUND(amount, 2)::text AS amount, 1 AS ord FROM assets
+            UNION ALL
+            SELECT 'Assets', account_name, ROUND(amount, 2)::text, 2 FROM assets_total
+            UNION ALL
+            SELECT '', '', '', 3
+            UNION ALL
+            SELECT 'Liabilities', account_name, ROUND(amount, 2)::text, 4 FROM liabilities
+            UNION ALL
+            SELECT 'Liabilities', account_name, ROUND(amount, 2)::text, 5 FROM liabilities_total
+            UNION ALL
+            SELECT '', '', '', 6
+            UNION ALL
+            SELECT 'Equity', account_name, ROUND(amount, 2)::text, 7 FROM equity_net_profit
+            UNION ALL
+            SELECT 'Equity', account_name, ROUND(amount, 2)::text, 8 FROM equity_total
+            UNION ALL
+            SELECT '', '', '', 9
+            UNION ALL
+            SELECT 'Liabilities & Equity', account_name, ROUND(amount, 2)::text, 10 FROM liabilities_equity_total
+          )
 
-      const { data: transactions } = await supabase
-        .from('transactions')
-        .select('debit_account_id, credit_account_id, amount');
-
-      // Calculate balances for each account
-      const balances: { [key: string]: { balance: number; type: string; name: string } } = {};
-      
-      accountsData?.forEach(account => {
-        const accountType = (account.account_heads as any)?.name;
-        balances[account.id] = {
-          balance: 0,
-          type: accountType,
-          name: account.name
-        };
+          SELECT section, account_name, amount
+          FROM final_ordered
+          ORDER BY ord;
+        `
       });
 
-      // Calculate account balances from transactions
-      transactions?.forEach(txn => {
-        if (txn.debit_account_id && balances[txn.debit_account_id]) {
-          balances[txn.debit_account_id].balance += txn.amount;
-        }
-        if (txn.credit_account_id && balances[txn.credit_account_id]) {
-          balances[txn.credit_account_id].balance -= txn.amount;
-        }
-      });
+      if (error) throw error;
 
-      // Calculate net profit using P&L data
-      const { data: profitData } = useProfitLossStatement();
-      const netProfitItem = profitData.find(item => item.item === 'Net Profit/Loss');
-      const netProfit = parseFloat(netProfitItem?.value || '0');
-
-      // Separate accounts by type and filter out zero balances
-      const assets = Object.values(balances).filter(acc => acc.type === 'Assets' && Math.abs(acc.balance) > 0.01);
-      const liabilities = Object.values(balances).filter(acc => acc.type === 'Liabilities' && Math.abs(acc.balance) > 0.01);
-      const equity = Object.values(balances).filter(acc => acc.type === 'Equity' && Math.abs(acc.balance) > 0.01);
-
-      const totalAssets = assets.reduce((sum, acc) => sum + acc.balance, 0);
-      const totalLiabilities = liabilities.reduce((sum, acc) => sum + Math.abs(acc.balance), 0);
-      const totalEquity = equity.reduce((sum, acc) => sum + Math.abs(acc.balance), 0) + netProfit;
-
-      const balanceSheetData: StatementItem[] = [
-        { item: 'ASSETS', value: '' },
-        ...assets.map(acc => ({ item: acc.name, value: acc.balance.toString() })),
-        { item: 'Total Assets', value: totalAssets.toString() },
-        { item: '', value: '' },
-        { item: 'LIABILITIES', value: '' },
-        ...liabilities.map(acc => ({ item: acc.name, value: Math.abs(acc.balance).toString() })),
-        { item: 'Total Liabilities', value: totalLiabilities.toString() },
-        { item: '', value: '' },
-        { item: 'EQUITY', value: '' },
-        ...equity.map(acc => ({ item: acc.name, value: Math.abs(acc.balance).toString() })),
-        { item: 'Retained Earnings', value: netProfit.toString() },
-        { item: 'Total Equity', value: totalEquity.toString() }
-      ];
+      // Transform the balance sheet data to match the expected format
+      const balanceSheetData: StatementItem[] = (bsData?.result || []).map((row: BalanceSheetItem) => ({
+        item: row.section ? `${row.section} - ${row.account_name}` : row.account_name,
+        value: row.amount
+      }));
 
       console.log('Balance Sheet Data:', balanceSheetData);
       setData(balanceSheetData);
