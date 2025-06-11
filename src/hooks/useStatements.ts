@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface StatementItem {
   item: string;
   value: string;
-}//lets go
+}
 
 interface BankTransaction {
   transaction_id: number;
@@ -50,19 +49,28 @@ const useStatementData = (type: 'profit-loss' | 'balance-sheet') => {
       
       const sqlQuery = type === 'profit-loss' ? getProfitLossQuery() : getBalanceSheetQuery();
       
-      const { data: response, error } = await supabase.rpc('execute_sql' as any, {
+      console.log(`Executing ${type} query:`, sqlQuery);
+      
+      const { data: response, error } = await supabase.rpc('execute_sql', {
         sql_query: sqlQuery
       });
 
-      if (error) throw error;
+      console.log(`${type} raw response:`, response);
+
+      if (error) {
+        console.error(`Error in ${type} RPC call:`, error);
+        throw error;
+      }
 
       const typedResponse = response as ExecuteSqlResponse;
       
       if (typedResponse.error) {
+        console.error(`SQL error in ${type}:`, typedResponse.error);
         throw new Error(typedResponse.error);
       }
 
       const resultData = typedResponse.result || [];
+      console.log(`${type} result data:`, resultData);
       
       let statementData: StatementItem[];
       
@@ -75,7 +83,7 @@ const useStatementData = (type: 'profit-loss' | 'balance-sheet') => {
         statementData = resultData;
       }
 
-      console.log(`${type} Data:`, statementData);
+      console.log(`${type} final data:`, statementData);
       setData(statementData);
     } catch (error) {
       console.error(`Error fetching ${type} statement:`, error);
