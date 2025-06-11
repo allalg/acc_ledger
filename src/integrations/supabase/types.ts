@@ -443,9 +443,24 @@ export type Database = {
         Args: { sql_query: string }
         Returns: Json
       }
+      get_balance_sheet_supabase: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          section: string
+          account_name: string
+          amount: string
+        }[]
+      }
       get_net_profit_loss: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      get_profit_summary_supabase: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          item: string
+          value: string
+        }[]
       }
       get_total_bank_balance: {
         Args: Record<PropertyKey, never>
