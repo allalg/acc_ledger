@@ -4,15 +4,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, TrendingUp, TrendingDown, DollarSign, Users, Truck, Package, ShoppingCart, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { useLowStockWarnings } from "@/hooks/useLowStockWarnings";
 
 const Index = () => {
   const { data, loading } = useDashboardData();
+  const { lowStockItems } = useLowStockWarnings();
 
-  const warnings = [
-    { type: "Low Inventory", item: "Office Supplies", level: "Critical" },
+  const staticWarnings = [
     { type: "Bad Debt", item: "Customer ABC Inc", amount: "₹5,000" },
-    { type: "Low Inventory", item: "Raw Materials", level: "Warning" },
   ];
+
+  // Combine low stock warnings with static warnings
+  const lowStockWarnings = lowStockItems.map(item => ({
+    type: "Low Inventory",
+    item: `${item.name} (SKU: ${item.sku})`,
+    level: item.current_stock <= 5 ? "Critical" : "Warning",
+    stock: item.current_stock
+  }));
+
+  const allWarnings = [...lowStockWarnings, ...staticWarnings];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -56,7 +66,7 @@ const Index = () => {
     },
     { 
       title: "Warnings", 
-      value: "3 Active", 
+      value: `${allWarnings.length} Active`, 
       icon: AlertTriangle, 
       trend: "warning" 
     },
@@ -152,13 +162,18 @@ const Index = () => {
                   
                   {metric.title === "Warnings" && (
                     <div className="mt-4 space-y-2 max-h-32 overflow-y-auto">
-                      {warnings.map((warning, idx) => (
-                        <div key={idx} className="flex items-center gap-2 p-2 bg-yellow-50 rounded text-xs">
-                          <AlertCircle className="h-3 w-3 text-yellow-600 flex-shrink-0" />
-                          <span className="text-yellow-800">
+                      {allWarnings.map((warning, idx) => (
+                        <div key={idx} className={`flex items-center gap-2 p-2 rounded text-xs ${
+                          warning.level === 'Critical' ? 'bg-red-50' : 'bg-yellow-50'
+                        }`}>
+                          <AlertCircle className={`h-3 w-3 flex-shrink-0 ${
+                            warning.level === 'Critical' ? 'text-red-600' : 'text-yellow-600'
+                          }`} />
+                          <span className={warning.level === 'Critical' ? 'text-red-800' : 'text-yellow-800'}>
                             {warning.type}: {warning.item}
                             {warning.level && ` (${warning.level})`}
                             {warning.amount && ` - ${warning.amount}`}
+                            {warning.stock !== undefined && ` - ${warning.stock} units left`}
                           </span>
                         </div>
                       ))}
