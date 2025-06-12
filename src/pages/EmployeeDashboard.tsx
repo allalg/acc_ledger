@@ -1,6 +1,7 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import AddTransactionForm from "@/components/AddTransactionForm";
+import LowStockWarnings from "@/components/LowStockWarnings";
 
 const EmployeeDashboard = () => {
   return (
@@ -17,7 +18,8 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-6 space-y-6">
+        <LowStockWarnings />
         <AddTransactionForm />
       </div>
     </div>
