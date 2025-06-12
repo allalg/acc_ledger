@@ -16,16 +16,21 @@ export const useLowStockWarnings = () => {
   const fetchLowStockItems = async () => {
     try {
       setLoading(true);
+      console.log('Fetching low stock items...');
+      
       const { data, error } = await supabase
         .from('inventory_items')
         .select('id, name, current_stock, sku')
         .lt('current_stock', 10)
         .order('current_stock', { ascending: true });
 
+      console.log('Low stock query result:', { data, error });
+
       if (error) {
         console.error('Error fetching low stock items:', error);
         setLowStockItems([]);
       } else {
+        console.log('Found low stock items:', data);
         setLowStockItems(data || []);
       }
     } catch (error) {

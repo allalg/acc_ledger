@@ -6,7 +6,10 @@ import { useLowStockWarnings } from "@/hooks/useLowStockWarnings";
 const LowStockWarnings = () => {
   const { lowStockItems, loading } = useLowStockWarnings();
 
+  console.log('LowStockWarnings render:', { lowStockItems, loading });
+
   if (loading) {
+    console.log('Showing loading state');
     return (
       <div className="animate-pulse">
         <div className="h-20 bg-gray-200 rounded"></div>
@@ -15,8 +18,15 @@ const LowStockWarnings = () => {
   }
 
   if (lowStockItems.length === 0) {
-    return null;
+    console.log('No low stock items found, hiding component');
+    return (
+      <div className="mb-4">
+        <p className="text-sm text-gray-600">No low stock warnings at this time.</p>
+      </div>
+    );
   }
+
+  console.log('Rendering low stock warnings for items:', lowStockItems);
 
   return (
     <div className="space-y-3">
