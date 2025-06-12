@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -52,28 +52,33 @@ function App() {
         <Sonner />
         <BrowserRouter>
           <SidebarProvider>
-            <div className="flex min-h-screen">
+            <div className="flex min-h-screen w-full">
               <AppSidebar />
               <div className="flex-1">
-                <Routes>
-                  {userRole === 'employee' ? (
-                    <>
-                      <Route path="/dashboard" element={<EmployeeDashboard />} />
-                      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                    </>
-                  ) : (
-                    <>
-                      <Route path="/dashboard" element={<Index />} />
-                      <Route path="/ledgers" element={<Ledgers />} />
-                      <Route path="/bank-statement" element={<BankStatement />} />
-                      <Route path="/profit-loss" element={<ProfitLoss />} />
-                      <Route path="/balance-sheet" element={<BalanceSheet />} />
-                      <Route path="/customers" element={<Customers />} />
-                      <Route path="/vendors" element={<Vendors />} />
-                      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                    </>
-                  )}
-                </Routes>
+                <div className="p-4 border-b">
+                  <SidebarTrigger />
+                </div>
+                <main className="flex-1">
+                  <Routes>
+                    {userRole === 'employee' ? (
+                      <>
+                        <Route path="/dashboard" element={<EmployeeDashboard />} />
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                      </>
+                    ) : (
+                      <>
+                        <Route path="/dashboard" element={<Index />} />
+                        <Route path="/ledgers" element={<Ledgers />} />
+                        <Route path="/bank-statement" element={<BankStatement />} />
+                        <Route path="/profit-loss" element={<ProfitLoss />} />
+                        <Route path="/balance-sheet" element={<BalanceSheet />} />
+                        <Route path="/customers" element={<Customers />} />
+                        <Route path="/vendors" element={<Vendors />} />
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                      </>
+                    )}
+                  </Routes>
+                </main>
               </div>
             </div>
           </SidebarProvider>

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { Logo } from "@/components/Logo";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -55,14 +56,10 @@ const Login = () => {
       <Card className="w-full max-w-md bg-white shadow-xl border-green-200">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img 
-              src="/lovable-uploads/d1415ff8-fd32-4b87-afe2-3d9b9565445b.png" 
-              alt="Acco Sight Logo" 
-              className="h-20 w-auto"
-            />
+            <Logo className="scale-125" />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-800">
-            Acco Sight Login
+            AccoSight Login
           </CardTitle>
         </CardHeader>
         <CardContent>
