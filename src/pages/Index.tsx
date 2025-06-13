@@ -5,24 +5,33 @@ import { AlertTriangle, TrendingUp, TrendingDown, DollarSign, Users, Truck, Pack
 import { Badge } from "@/components/ui/badge";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useLowStockWarnings } from "@/hooks/useLowStockWarnings";
+import AdminReversalRequests from "@/components/AdminReversalRequests";
+
+interface Warning {
+  type: string;
+  item: string;
+  level?: string;
+  stock?: number;
+  amount?: string;
+}
 
 const Index = () => {
   const { data, loading } = useDashboardData();
   const { lowStockItems } = useLowStockWarnings();
 
-  const staticWarnings = [
+  const staticWarnings: Warning[] = [
     { type: "Bad Debt", item: "Customer ABC Inc", amount: "₹5,000" },
   ];
 
   // Combine low stock warnings with static warnings
-  const lowStockWarnings = lowStockItems.map(item => ({
+  const lowStockWarnings: Warning[] = lowStockItems.map(item => ({
     type: "Low Inventory",
     item: `${item.name} (SKU: ${item.sku})`,
     level: item.current_stock <= 5 ? "Critical" : "Warning",
     stock: item.current_stock
   }));
 
-  const allWarnings = [...lowStockWarnings, ...staticWarnings];
+  const allWarnings: Warning[] = [...lowStockWarnings, ...staticWarnings];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -184,6 +193,9 @@ const Index = () => {
             ))}
           </div>
         </div>
+
+        {/* Admin Reversal Requests Section */}
+        <AdminReversalRequests />
       </div>
     </div>
   );

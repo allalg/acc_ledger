@@ -1,0 +1,148 @@
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface ReversalRequest {
+  id: string;
+  transaction_id: number;
+  requested_by: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by?: string;
+  reviewed_at?: string;
+  created_at: string;
+  requester_name?: string;
+  transaction_description?: string;
+  transaction_amount?: number;
+}
+
+export const useReversalRequests = () => {
+  const [requests, setRequests] = useState<ReversalRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchReversalRequests = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching reversal requests...');
+      
+      const { data, error } = await supabase
+        .from('transaction_reversal_requests')
+        .select(`
+          id,
+          transaction_id,
+          requested_by,
+          reason,
+          status,
+          reviewed_by,
+          reviewed_at,
+          created_at,
+          requester:users!transaction_reversal_requests_requested_by_fkey(username),
+          transaction:transactions!transaction_reversal_requests_transaction_id_fkey(description, amount)
+        `)
+        .order('created_at', { ascending: false });
+
+      console.log('Reversal requests query result:', { data, error });
+
+      if (error) {
+        console.error('Error fetching reversal requests:', error);
+        setRequests([]);
+      } else {
+        const formattedRequests = (data || []).map((req: any) => ({
+          id: req.id,
+          transaction_id: req.transaction_id,
+          requested_by: req.requested_by,
+          reason: req.reason,
+          status: req.status,
+          reviewed_by: req.reviewed_by,
+          reviewed_at: req.reviewed_at,
+          created_at: req.created_at,
+          requester_name: req.requester?.username || 'Unknown',
+          transaction_description: req.transaction?.description || 'No description',
+          transaction_amount: req.transaction?.amount || 0
+        }));
+        console.log('Formatted reversal requests:', formattedRequests);
+        setRequests(formattedRequests);
+      }
+    } catch (error) {
+      console.error('Error fetching reversal requests:', error);
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createReversalRequest = async (transactionId: number, reason: string) => {
+    try {
+      console.log('Creating reversal request for transaction:', transactionId);
+      
+      const { error } = await supabase
+        .from('transaction_reversal_requests')
+        .insert({
+          transaction_id: transactionId,
+          reason,
+          requested_by: (await supabase.auth.getUser()).data.user?.id
+        });
+
+      if (error) {
+        console.error('Error creating reversal request:', error);
+        throw error;
+      }
+
+      await fetchReversalRequests();
+      return true;
+    } catch (error) {
+      console.error('Error creating reversal request:', error);
+      throw error;
+    }
+  };
+
+  const updateReversalRequestStatus = async (requestId: string, status: 'approved' | 'rejected') => {
+    try {
+      console.log('Updating reversal request status:', requestId, status);
+      
+      const { error } = await supabase
+        .from('transaction_reversal_requests')
+        .update({
+          status,
+          reviewed_by: (await supabase.auth.getUser()).data.user?.id,
+          reviewed_at: new Date().toISOString()
+        })
+        .eq('id', requestId);
+
+      if (error) {
+        console.error('Error updating reversal request:', error);
+        throw error;
+      }
+
+      // If approved, process the reversal
+      if (status === 'approved') {
+        const { error: processError } = await supabase.rpc('process_transaction_reversal', {
+          reversal_request_id: requestId
+        });
+
+        if (processError) {
+          console.error('Error processing transaction reversal:', processError);
+          throw processError;
+        }
+      }
+
+      await fetchReversalRequests();
+      return true;
+    } catch (error) {
+      console.error('Error updating reversal request:', error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    fetchReversalRequests();
+  }, []);
+
+  return { 
+    requests, 
+    loading, 
+    refetch: fetchReversalRequests,
+    createReversalRequest,
+    updateReversalRequestStatus
+  };
+};

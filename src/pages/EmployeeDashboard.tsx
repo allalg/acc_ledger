@@ -2,6 +2,7 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import AddTransactionForm from "@/components/AddTransactionForm";
 import LowStockWarnings from "@/components/LowStockWarnings";
+import TransactionReversalForm from "@/components/TransactionReversalForm";
 
 const EmployeeDashboard = () => {
   return (
@@ -20,7 +21,10 @@ const EmployeeDashboard = () => {
 
       <div className="p-6 space-y-6">
         <LowStockWarnings />
-        <AddTransactionForm />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AddTransactionForm />
+          <TransactionReversalForm />
+        </div>
       </div>
     </div>
   );

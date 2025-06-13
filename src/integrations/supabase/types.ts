@@ -282,6 +282,64 @@ export type Database = {
           },
         ]
       }
+      transaction_reversal_requests: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string | null
+          requested_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          transaction_id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          requested_by: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          transaction_id: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          requested_by?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          transaction_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_reversal_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "transaction_reversal_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "transaction_reversal_requests_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -465,6 +523,10 @@ export type Database = {
       get_total_bank_balance: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      process_transaction_reversal: {
+        Args: { reversal_request_id: string }
+        Returns: boolean
       }
     }
     Enums: {
