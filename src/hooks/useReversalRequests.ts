@@ -75,12 +75,25 @@ export const useReversalRequests = () => {
     try {
       console.log('Creating reversal request for transaction:', transactionId);
       
+      // Get current user from localStorage (assuming this is how your app stores user info)
+      const currentUser = localStorage.getItem('currentUser');
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+      
+      const userData = JSON.parse(currentUser);
+      const userId = userData.user_id || userData.id;
+      
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+      
       const { error } = await supabase
         .from('transaction_reversal_requests')
         .insert({
           transaction_id: transactionId,
           reason,
-          requested_by: (await supabase.auth.getUser()).data.user?.id
+          requested_by: userId
         });
 
       if (error) {
@@ -100,11 +113,24 @@ export const useReversalRequests = () => {
     try {
       console.log('Updating reversal request status:', requestId, status);
       
+      // Get current user from localStorage
+      const currentUser = localStorage.getItem('currentUser');
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+      
+      const userData = JSON.parse(currentUser);
+      const userId = userData.user_id || userData.id;
+      
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+      
       const { error } = await supabase
         .from('transaction_reversal_requests')
         .update({
           status,
-          reviewed_by: (await supabase.auth.getUser()).data.user?.id,
+          reviewed_by: userId,
           reviewed_at: new Date().toISOString()
         })
         .eq('id', requestId);
