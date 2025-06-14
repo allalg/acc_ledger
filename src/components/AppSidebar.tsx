@@ -1,6 +1,5 @@
-
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown, Users, Truck, FileText, LogOut, BookOpen, PieChart, DollarSign, CreditCard, Plus } from "lucide-react";
+import { ChevronDown, Users, Truck, FileText, LogOut, BookOpen, PieChart, DollarSign, CreditCard, Plus, Receipt } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -49,6 +48,11 @@ const employeeMenuItems = [
     title: "Dashboard",
     url: "/dashboard",
     icon: Plus,
+  },
+  {
+    title: "Transactions",
+    url: "/employee-transactions",
+    icon: Receipt,
   },
 ];
 

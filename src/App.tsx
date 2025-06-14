@@ -15,6 +15,7 @@ import BalanceSheet from "./pages/BalanceSheet";
 import Customers from "./pages/Customers";
 import Vendors from "./pages/Vendors";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
+import EmployeeTransactions from "./pages/EmployeeTransactions";
 import PreviousReversalRequests from "./pages/PreviousReversalRequests";
 import { useAuth } from "./hooks/useAuth";
 
@@ -60,6 +61,7 @@ function App() {
                   {userRole === 'employee' ? (
                     <>
                       <Route path="/dashboard" element={<EmployeeDashboard />} />
+                      <Route path="/employee-transactions" element={<EmployeeTransactions />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </>
                   ) : (
