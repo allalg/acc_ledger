@@ -75,18 +75,37 @@ export const useReversalRequests = () => {
     try {
       console.log('Creating reversal request for transaction:', transactionId);
       
-      // Get current user from localStorage (assuming this is how your app stores user info)
+      // Get current user from localStorage with better debugging
       const currentUser = localStorage.getItem('currentUser');
+      console.log('Raw currentUser from localStorage:', currentUser);
+      
       if (!currentUser) {
+        console.error('No currentUser found in localStorage');
         throw new Error('No user logged in');
       }
       
-      const userData = JSON.parse(currentUser);
+      let userData;
+      try {
+        userData = JSON.parse(currentUser);
+        console.log('Parsed userData:', userData);
+      } catch (parseError) {
+        console.error('Error parsing currentUser:', parseError);
+        throw new Error('Invalid user data in localStorage');
+      }
+      
       const userId = userData.user_id || userData.id;
+      console.log('Extracted userId:', userId);
       
       if (!userId) {
+        console.error('No user_id found in userData:', userData);
         throw new Error('User ID not found');
       }
+      
+      console.log('Attempting to insert reversal request with:', {
+        transaction_id: transactionId,
+        reason,
+        requested_by: userId
+      });
       
       const { error } = await supabase
         .from('transaction_reversal_requests')
@@ -101,6 +120,7 @@ export const useReversalRequests = () => {
         throw error;
       }
 
+      console.log('Reversal request created successfully');
       await fetchReversalRequests();
       return true;
     } catch (error) {
