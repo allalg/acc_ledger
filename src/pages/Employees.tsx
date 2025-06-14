@@ -61,7 +61,7 @@ const Employees = () => {
       });
 
       if (error) throw error;
-      return data.result || [];
+      return (data as any)?.result || [];
     }
   });
 
@@ -83,7 +83,7 @@ const Employees = () => {
       });
 
       if (error) throw error;
-      return data.result || [];
+      return (data as any)?.result || [];
     }
   });
 
