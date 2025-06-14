@@ -15,6 +15,7 @@ import BalanceSheet from "./pages/BalanceSheet";
 import Customers from "./pages/Customers";
 import Vendors from "./pages/Vendors";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
+import PreviousReversalRequests from "./pages/PreviousReversalRequests";
 import { useAuth } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
@@ -70,6 +71,7 @@ function App() {
                       <Route path="/balance-sheet" element={<BalanceSheet />} />
                       <Route path="/customers" element={<Customers />} />
                       <Route path="/vendors" element={<Vendors />} />
+                      <Route path="/previous-reversal-requests" element={<PreviousReversalRequests />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </>
                   )}

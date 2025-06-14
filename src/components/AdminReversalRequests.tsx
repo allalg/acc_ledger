@@ -4,11 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useReversalRequests } from '@/hooks/useReversalRequests';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, AlertTriangle, History } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const AdminReversalRequests = () => {
   const { requests, loading, updateReversalRequestStatus } = useReversalRequests();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Filter to only show pending requests
+  const pendingRequests = requests.filter(request => request.status === 'pending');
 
   const handleApprove = async (requestId: string) => {
     try {
@@ -72,7 +77,7 @@ const AdminReversalRequests = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
             <AlertTriangle className="h-5 w-5" />
-            Transaction Reversal Requests
+            Pending Transaction Reversal Requests
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -91,15 +96,15 @@ const AdminReversalRequests = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
           <AlertTriangle className="h-5 w-5" />
-          Transaction Reversal Requests ({requests.filter(r => r.status === 'pending').length} pending)
+          Pending Transaction Reversal Requests ({pendingRequests.length} pending)
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {requests.length === 0 ? (
-          <p className="text-gray-600 text-center py-4">No reversal requests found.</p>
+        {pendingRequests.length === 0 ? (
+          <p className="text-gray-600 text-center py-4">No pending reversal requests found.</p>
         ) : (
           <div className="space-y-4">
-            {requests.map((request) => (
+            {pendingRequests.map((request) => (
               <div key={request.id} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
@@ -127,39 +132,41 @@ const AdminReversalRequests = () => {
                   </div>
                 </div>
                 
-                {request.status === 'pending' && (
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
-                    <Button
-                      size="sm"
-                      onClick={() => handleApprove(request.id)}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleReject(request.id)}
-                      className="border-red-200 text-red-600 hover:bg-red-50"
-                    >
-                      <XCircle className="h-4 w-4 mr-1" />
-                      Reject
-                    </Button>
-                  </div>
-                )}
-                
-                {request.status !== 'pending' && request.reviewed_at && (
-                  <div className="pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-500">
-                      {request.status === 'approved' ? 'Approved' : 'Rejected'} on: {new Date(request.reviewed_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
+                <div className="flex gap-2 pt-3 border-t border-gray-100">
+                  <Button
+                    size="sm"
+                    onClick={() => handleApprove(request.id)}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleReject(request.id)}
+                    className="border-red-200 text-red-600 hover:bg-red-50"
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Reject
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         )}
+        
+        {/* Previous Requests Button */}
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/previous-reversal-requests')}
+            className="w-full"
+          >
+            <History className="h-4 w-4 mr-2" />
+            Previous Requests
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
