@@ -9,7 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 
 const Employees = () => {
@@ -66,19 +66,32 @@ const Employees = () => {
   });
 
   const { data: chartData, isLoading: chartLoading } = useQuery({
-    queryKey: ['employee-chart-data'],
+    queryKey: ['employee-chart-data', timePeriod, customDateFrom, customDateTo],
     queryFn: async () => {
+      let dateFilter = '';
+      const now = new Date();
+      
+      if (timePeriod === 'day') {
+        dateFilter = `AND transaction_date >= '${new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()}'`;
+      } else if (timePeriod === 'month') {
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        dateFilter = `AND transaction_date >= '${firstDayOfMonth.toISOString()}'`;
+      } else if (timePeriod === 'year') {
+        const firstDayOfYear = new Date(now.getFullYear(), 0, 1);
+        dateFilter = `AND transaction_date >= '${firstDayOfYear.toISOString()}'`;
+      } else if (timePeriod === 'custom' && customDateFrom && customDateTo) {
+        dateFilter = `AND transaction_date >= '${customDateFrom.toISOString()}' AND transaction_date <= '${customDateTo.toISOString()}'`;
+      }
+
       const { data, error } = await supabase.rpc('execute_sql', {
         sql_query: `
           SELECT 
             e.name,
-            COUNT(CASE WHEN t.transaction_date >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as last_30_days,
-            COUNT(CASE WHEN t.transaction_date >= CURRENT_DATE - INTERVAL '12 months' THEN 1 END) as last_12_months,
-            COUNT(t.id) as all_time
+            COUNT(t.id) as transaction_count
           FROM employees e
-          LEFT JOIN transactions t ON t.created_by = e.id
+          LEFT JOIN transactions t ON t.created_by = e.id ${dateFilter}
           GROUP BY e.id, e.name
-          ORDER BY all_time DESC
+          ORDER BY transaction_count DESC
         `
       });
 
@@ -88,17 +101,9 @@ const Employees = () => {
   });
 
   const chartConfig = {
-    last_30_days: {
-      label: "Last 30 Days",
-      color: "#22c55e",
-    },
-    last_12_months: {
-      label: "Last 12 Months", 
+    transaction_count: {
+      label: "Transactions",
       color: "#3b82f6",
-    },
-    all_time: {
-      label: "All Time",
-      color: "#f59e0b",
     },
   };
 
@@ -170,7 +175,14 @@ const Employees = () => {
       {/* Chart Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Employee Transaction Comparison</CardTitle>
+          <CardTitle>Employee Transaction Performance - {
+            timePeriod === 'day' ? 'Today' :
+            timePeriod === 'month' ? 'This Month' :
+            timePeriod === 'year' ? 'This Year' :
+            timePeriod === 'custom' && customDateFrom && customDateTo ? 
+              `${format(customDateFrom, "MMM dd")} - ${format(customDateTo, "MMM dd")}` :
+              'Selected Period'
+          }</CardTitle>
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-[400px]">
@@ -180,10 +192,7 @@ const Employees = () => {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="last_30_days" fill="var(--color-last_30_days)" />
-                <Bar dataKey="last_12_months" fill="var(--color-last_12_months)" />
-                <Bar dataKey="all_time" fill="var(--color-all_time)" />
+                <Bar dataKey="transaction_count" fill="var(--color-transaction_count)" />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
