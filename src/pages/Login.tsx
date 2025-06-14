@@ -56,7 +56,7 @@ const Login = () => {
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
             <img 
-              src="/lovable-uploads/d1415ff8-fd32-4b87-afe2-3d9b9565445b.png" 
+              src="/lovable-uploads/83d7f3c9-e326-4199-b20a-8b48f7d64bf5.png" 
               alt="Acco Sight Logo" 
               className="h-20 w-auto"
             />
