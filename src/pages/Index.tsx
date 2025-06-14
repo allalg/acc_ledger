@@ -1,10 +1,10 @@
-
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, TrendingUp, TrendingDown, DollarSign, Users, Truck, Package, ShoppingCart, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useLowStockWarnings } from "@/hooks/useLowStockWarnings";
+import { useBadDebtWarnings } from "@/hooks/useBadDebtWarnings";
 import AdminReversalRequests from "@/components/AdminReversalRequests";
 
 interface Warning {
@@ -18,12 +18,16 @@ interface Warning {
 const Index = () => {
   const { data, loading } = useDashboardData();
   const { lowStockItems } = useLowStockWarnings();
+  const { badDebtCustomers } = useBadDebtWarnings();
 
-  const staticWarnings: Warning[] = [
-    { type: "Bad Debt", item: "Customer ABC Inc", amount: "₹5,000" },
-  ];
+  // Create bad debt warnings from the fetched data
+  const badDebtWarnings: Warning[] = badDebtCustomers.map(customer => ({
+    type: "Bad Debt",
+    item: customer.customer_name,
+    amount: `₹${customer.unpaid_amount.toLocaleString()}`
+  }));
 
-  // Combine low stock warnings with static warnings
+  // Combine low stock warnings with bad debt warnings
   const lowStockWarnings: Warning[] = lowStockItems.map(item => ({
     type: "Low Inventory",
     item: `${item.name} (SKU: ${item.sku})`,
@@ -31,7 +35,7 @@ const Index = () => {
     stock: item.current_stock
   }));
 
-  const allWarnings: Warning[] = [...lowStockWarnings, ...staticWarnings];
+  const allWarnings: Warning[] = [...lowStockWarnings, ...badDebtWarnings];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -173,12 +177,17 @@ const Index = () => {
                     <div className="mt-4 space-y-2 max-h-32 overflow-y-auto">
                       {allWarnings.map((warning, idx) => (
                         <div key={idx} className={`flex items-center gap-2 p-2 rounded text-xs ${
-                          warning.level === 'Critical' ? 'bg-red-50' : 'bg-yellow-50'
+                          warning.level === 'Critical' ? 'bg-red-50' : 
+                          warning.type === 'Bad Debt' ? 'bg-orange-50' : 'bg-yellow-50'
                         }`}>
                           <AlertCircle className={`h-3 w-3 flex-shrink-0 ${
-                            warning.level === 'Critical' ? 'text-red-600' : 'text-yellow-600'
+                            warning.level === 'Critical' ? 'text-red-600' : 
+                            warning.type === 'Bad Debt' ? 'text-orange-600' : 'text-yellow-600'
                           }`} />
-                          <span className={warning.level === 'Critical' ? 'text-red-800' : 'text-yellow-800'}>
+                          <span className={
+                            warning.level === 'Critical' ? 'text-red-800' : 
+                            warning.type === 'Bad Debt' ? 'text-orange-800' : 'text-yellow-800'
+                          }>
                             {warning.type}: {warning.item}
                             {warning.level && ` (${warning.level})`}
                             {warning.amount && ` - ${warning.amount}`}
