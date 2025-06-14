@@ -170,18 +170,47 @@ export const useReversalRequests = () => {
         console.log('Processing reversal for request:', requestId);
         
         try {
+          // Get the original transaction details first for logging
+          const request = requests.find(r => r.id === requestId);
+          if (request) {
+            console.log('Processing reversal for transaction ID:', request.transaction_id);
+            
+            // Check if the original transaction exists
+            const { data: originalTxn, error: txnError } = await supabase
+              .from('transactions')
+              .select('*')
+              .eq('id', request.transaction_id)
+              .single();
+              
+            console.log('Original transaction check:', { originalTxn, txnError });
+          }
+          
+          // Now call the reversal function
           const { data, error: processError } = await supabase.rpc('process_transaction_reversal', {
             reversal_request_id: requestId
           });
 
-          console.log('Process reversal result:', { data, processError });
+          console.log('Process reversal RPC result:', { data, processError });
 
           if (processError) {
             console.error('Error processing transaction reversal:', processError);
             throw processError;
           }
 
-          console.log('Transaction reversal processed successfully');
+          console.log('Transaction reversal processed successfully, checking for new transactions...');
+          
+          // Wait a moment and then check for the new reversal transaction
+          setTimeout(async () => {
+            const { data: newTxns, error: checkError } = await supabase
+              .from('transactions')
+              .select('*')
+              .contains('reference_transaction_ids', [request?.transaction_id])
+              .order('created_at', { ascending: false })
+              .limit(5);
+              
+            console.log('Checking for new reversal transactions:', { newTxns, checkError });
+          }, 2000);
+          
         } catch (rpcError) {
           console.error('RPC call failed:', rpcError);
           throw rpcError;
