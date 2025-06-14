@@ -1,5 +1,6 @@
+
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown, Users, Truck, FileText, LogOut, BookOpen, PieChart, DollarSign, CreditCard, Plus, Receipt } from "lucide-react";
+import { ChevronDown, Users, Truck, FileText, LogOut, BookOpen, PieChart, DollarSign, CreditCard, Plus, Receipt, UserCheck } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -40,6 +41,11 @@ const adminMenuItems = [
     title: "Vendors",
     url: "/vendors",
     icon: Truck,
+  },
+  {
+    title: "Employees",
+    url: "/employees",
+    icon: UserCheck,
   },
 ];
 

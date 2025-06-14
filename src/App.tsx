@@ -14,6 +14,7 @@ import ProfitLoss from "./pages/ProfitLoss";
 import BalanceSheet from "./pages/BalanceSheet";
 import Customers from "./pages/Customers";
 import Vendors from "./pages/Vendors";
+import Employees from "./pages/Employees";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import EmployeeTransactions from "./pages/EmployeeTransactions";
 import PreviousReversalRequests from "./pages/PreviousReversalRequests";
@@ -73,6 +74,7 @@ function App() {
                       <Route path="/balance-sheet" element={<BalanceSheet />} />
                       <Route path="/customers" element={<Customers />} />
                       <Route path="/vendors" element={<Vendors />} />
+                      <Route path="/employees" element={<Employees />} />
                       <Route path="/previous-reversal-requests" element={<PreviousReversalRequests />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </>
