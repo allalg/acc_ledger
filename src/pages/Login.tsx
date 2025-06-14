@@ -58,7 +58,7 @@ const Login = () => {
             <img 
               src="/lovable-uploads/83d7f3c9-e326-4199-b20a-8b48f7d64bf5.png" 
               alt="Acco Sight Logo" 
-              className="h-20 w-auto"
+              className="h-32 w-auto"
             />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-800">
