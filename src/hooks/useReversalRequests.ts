@@ -147,6 +147,8 @@ export const useReversalRequests = () => {
         throw new Error('User ID not found');
       }
       
+      console.log('Updating request with user ID:', userId);
+      
       const { error } = await supabase
         .from('transaction_reversal_requests')
         .update({
@@ -161,15 +163,28 @@ export const useReversalRequests = () => {
         throw error;
       }
 
+      console.log('Reversal request status updated successfully');
+
       // If approved, process the reversal
       if (status === 'approved') {
-        const { error: processError } = await supabase.rpc('process_transaction_reversal', {
-          reversal_request_id: requestId
-        });
+        console.log('Processing reversal for request:', requestId);
+        
+        try {
+          const { data, error: processError } = await supabase.rpc('process_transaction_reversal', {
+            reversal_request_id: requestId
+          });
 
-        if (processError) {
-          console.error('Error processing transaction reversal:', processError);
-          throw processError;
+          console.log('Process reversal result:', { data, processError });
+
+          if (processError) {
+            console.error('Error processing transaction reversal:', processError);
+            throw processError;
+          }
+
+          console.log('Transaction reversal processed successfully');
+        } catch (rpcError) {
+          console.error('RPC call failed:', rpcError);
+          throw rpcError;
         }
       }
 
