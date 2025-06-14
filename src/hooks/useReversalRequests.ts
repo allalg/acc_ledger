@@ -75,8 +75,8 @@ export const useReversalRequests = () => {
     try {
       console.log('Creating reversal request for transaction:', transactionId);
       
-      // Get current user from localStorage with better debugging
-      const currentUser = localStorage.getItem('currentUser');
+      // Get current user from localStorage - check both possible keys
+      let currentUser = localStorage.getItem('accosight_user') || localStorage.getItem('currentUser');
       console.log('Raw currentUser from localStorage:', currentUser);
       
       if (!currentUser) {
@@ -93,7 +93,8 @@ export const useReversalRequests = () => {
         throw new Error('Invalid user data in localStorage');
       }
       
-      const userId = userData.user_id || userData.id;
+      // Check multiple possible fields for user ID
+      const userId = userData.user_id || userData.id || userData.user_metadata?.user_id;
       console.log('Extracted userId:', userId);
       
       if (!userId) {
@@ -133,14 +134,14 @@ export const useReversalRequests = () => {
     try {
       console.log('Updating reversal request status:', requestId, status);
       
-      // Get current user from localStorage
-      const currentUser = localStorage.getItem('currentUser');
+      // Get current user from localStorage - check both possible keys
+      let currentUser = localStorage.getItem('accosight_user') || localStorage.getItem('currentUser');
       if (!currentUser) {
         throw new Error('No user logged in');
       }
       
       const userData = JSON.parse(currentUser);
-      const userId = userData.user_id || userData.id;
+      const userId = userData.user_id || userData.id || userData.user_metadata?.user_id;
       
       if (!userId) {
         throw new Error('User ID not found');
