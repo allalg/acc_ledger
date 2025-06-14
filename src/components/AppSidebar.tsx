@@ -86,7 +86,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-6 border-b border-green-200">
         <div className="flex items-center gap-2">
           <img 
-            src="/lovable-uploads/d1415ff8-fd32-4b87-afe2-3d9b9565445b.png" 
+            src="/lovable-uploads/83d7f3c9-e326-4199-b20a-8b48f7d64bf5.png" 
             alt="Acco Sight Logo" 
             className="h-8 w-auto"
           />
