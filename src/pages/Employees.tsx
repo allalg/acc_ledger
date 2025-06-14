@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Printer } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 
@@ -107,6 +106,70 @@ const Employees = () => {
     },
   };
 
+  const handlePrintChart = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const chartElement = document.querySelector('[data-chart]');
+    if (!chartElement) return;
+
+    const chartHTML = chartElement.outerHTML;
+    const periodText = timePeriod === 'day' ? 'Today' :
+      timePeriod === 'month' ? 'This Month' :
+      timePeriod === 'year' ? 'This Year' :
+      timePeriod === 'custom' && customDateFrom && customDateTo ? 
+        `${format(customDateFrom, "MMM dd")} - ${format(customDateTo, "MMM dd")}` :
+        'Selected Period';
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Employee Performance Chart - ${periodText}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px;
+              -webkit-print-color-adjust: exact;
+              color-adjust: exact;
+            }
+            h1 { 
+              text-align: center; 
+              color: #374151;
+              margin-bottom: 30px;
+            }
+            .chart-container { 
+              width: 100%; 
+              height: 400px; 
+              margin: 0 auto;
+            }
+            @media print {
+              body { margin: 0; }
+              .chart-container { 
+                page-break-inside: avoid;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Employee Transaction Performance - ${periodText}</h1>
+          <div class="chart-container">
+            ${chartHTML}
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    
+    // Wait for content to load before printing
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 1000);
+  };
+
   if (employeesLoading || statsLoading || chartLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -175,14 +238,25 @@ const Employees = () => {
       {/* Chart Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Employee Transaction Performance - {
-            timePeriod === 'day' ? 'Today' :
-            timePeriod === 'month' ? 'This Month' :
-            timePeriod === 'year' ? 'This Year' :
-            timePeriod === 'custom' && customDateFrom && customDateTo ? 
-              `${format(customDateFrom, "MMM dd")} - ${format(customDateTo, "MMM dd")}` :
-              'Selected Period'
-          }</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Employee Transaction Performance - {
+              timePeriod === 'day' ? 'Today' :
+              timePeriod === 'month' ? 'This Month' :
+              timePeriod === 'year' ? 'This Year' :
+              timePeriod === 'custom' && customDateFrom && customDateTo ? 
+                `${format(customDateFrom, "MMM dd")} - ${format(customDateTo, "MMM dd")}` :
+                'Selected Period'
+            }</CardTitle>
+            <Button 
+              onClick={handlePrintChart}
+              variant="outline" 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Print Chart
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-[400px]">
